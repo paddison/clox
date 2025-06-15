@@ -9,4 +9,7 @@ typedef enum AllocErr {
   outOfMemory,
 } AllocErr;
 
+void *myMalloc(size_t size, size_t sizeOfType);
+void myFree(void* memory);
+
 #endif

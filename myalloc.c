@@ -66,6 +66,20 @@ static Header *freeList = &base;
  */
 static AllocErr requestHeapSpace(size_t *requestedSize, uint8_t *addr);
 
+/**
+ * \brief Growths the freelist by appending a new block of at least required 
+ *        size to it.
+ *        Calls requestHeapSpace internally to obtain a new block.
+ *
+ * \param[in]     requiredSize  The minimum size required of the new block.
+ * \param[in/out] current       The element of the freelist on which to 
+ *                              append the block to.
+ *
+ * \return AllocErr
+ *           - ok, the block was appended succesfully
+ *           - outOfMemory, no memory left block couldn't be appended.
+ *
+ */
 static AllocErr growFreeList(const size_t requiredSize, Header *current);
 
 /******************************************************************************
@@ -149,8 +163,8 @@ void *myMalloc(size_t size, size_t sizeOfType) {
 }
 
 /* todo: clean this up */
-void myFree(void* header) {
-  Header* chunkToFree = ((Header*) header) - 1;
+void myFree(void* memory) {
+  Header* chunkToFree = ((Header*) memory) - 1;
   const size_t maxIter = MEMORYSIZE;
   Header* current = freeList;
 
