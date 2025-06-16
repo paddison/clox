@@ -19,7 +19,7 @@
  * Taken from https://github.com/mit-pdos/xv6-public/blob/master/mmu.h#L90
  */
 #define PGROUNDUP(size) (((size) + PGSIZE - 1) & ~(PGSIZE - 1))
-#define ROUNDUP(size, width) (((size) + (width) - 1) & ~((width) - 1))
+#define UNITSIZE(size, width) (((size) + (width) - 1) / (width) + 1)
 
 /******************************************************************************
  * local data structures
@@ -103,13 +103,15 @@ static AllocErr requestHeapSpace(size_t *requestedSize, uint8_t *addr) {
 }
 
 static AllocErr growFreeList(const size_t requiredSize, Header *current) {
-  size_t availableSize = requiredSize;
+  size_t availableSize = requiredSize * sizeof(Header);
   Header *chunk = NULL;
   AllocErr isMemoryAvailable = requestHeapSpace(
       &availableSize, 
       (uint8_t *)chunk);
 
   if (isMemoryAvailable == ok) {
+    assert(availableSize % sizeof(Header) == 0);
+    availableSize /= sizeof(Header);
     assert(availableSize >= requiredSize);
     /* addresses returned by requestHeapSpace are guaranteed to be higher */
     chunk->h.next = freeList;
@@ -129,7 +131,8 @@ void *myMalloc(size_t size, size_t sizeOfType) {
   Header *addr = NULL;
   /* the required size needed to make an allocation of "size". */
   /* is padded to be aligned to header and includes space for the header itself */
-  const size_t requiredSize = ROUNDUP(size * sizeOfType + sizeof(Header),sizeof(Header));
+  const size_t requiredSize = UNITSIZE(size * sizeOfType, sizeof(Header));
+  assert(requiredSize % sizeof(Header) == 0);
   const size_t maxIter = MEMORYSIZE;
   Header *current = freeList;
 
@@ -172,14 +175,15 @@ void myFree(void* memory) {
     if (chunkToFree > current && chunkToFree < current->h.next) {
       /* put chunk back someplace inside the memory area */
       /* merge with right memory area */
+      /* | ... | current | chunkToFree M current->next | ... | */
       if (current->h.next == chunkToFree + chunkToFree->h.size) {
         chunkToFree->h.size += current->h.next->h.size;
         chunkToFree->h.next = current->h.next->h.next;
-        current->h.next = chunkToFree;
       } else {
         chunkToFree->h.next = current->h.next; 
       }
       /* merge with left memory area */
+      /* | ... | current M chunkToFree | current->next | ... | */
       if (current + current->h.size == chunkToFree) {
         current->h.size += chunkToFree->h.size;
         current->h.next = chunkToFree->h.next;
@@ -189,25 +193,26 @@ void myFree(void* memory) {
       break;
     } else if (current->h.next < current && chunkToFree > current) {
       /* put chunk to end of memory area */
-      /* merge with left memory area */
+      /* merge with current (left of chunk to free) */
+      /* | current->next | ... | current M chunkToFree | */
       if (current + current->h.size == chunkToFree) {
         current->h.size += chunkToFree->h.size;
-        current->h.next = chunkToFree->h.next;
       } else {
-        chunkToFree->h.next = current->h.next;
+        chunkToFree->h.next = current->h.next; 
         current->h.next = chunkToFree;
       }
       break;
     } else if (current->h.next < current && chunkToFree < current->h.next) {
       /* put chunk to start of memory area */
-      /* merge with right memory area */
+      /* merge with current->next (right of chunk to free) */
+      /* | chunkToFree M current->next | ... | current | */
       if (current->h.next == chunkToFree + chunkToFree->h.size) {
         chunkToFree->h.size += current->h.next->h.size;
         chunkToFree->h.next = current->h.next->h.next;
         current->h.next = chunkToFree;
       } else {
-        chunkToFree->h.next = current->h.next;
         chunkToFree->h.next = current->h.next; 
+        current->h.next = chunkToFree;
       }
       break;
     } else {
@@ -215,6 +220,4 @@ void myFree(void* memory) {
       current = current->h.next;
     }
   }
-
-
 }
