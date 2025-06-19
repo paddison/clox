@@ -2,10 +2,10 @@
 #include "common.h"
 #include "debug.h"
 #include "myalloc.h"
+#include "vm.h"
 
 int main(int argc, const char *argv[]) {
-  char *ptr = myMalloc(8, sizeof(char));
-  myFree(ptr);
+  initVM();
   Chunk chunk;
   initChunk(&chunk);
 
@@ -14,25 +14,29 @@ int main(int argc, const char *argv[]) {
   writeChunk(&chunk, constant, 123);
 
   writeChunk(&chunk, OP_RETURN, 123);
-  writeChunk(&chunk, OP_RETURN, 123);
-  int constant2 = addConstant(&chunk, 1.5);
-  writeChunk(&chunk, OP_CONSTANT, 124);
-  writeChunk(&chunk, constant2, 124);
-  writeChunk(&chunk, OP_RETURN, 124);
-  writeChunk(&chunk, OP_RETURN, 125);
 
   disassembleChunk(&chunk, "test chunk");
+  interpret(&chunk);
+  freeVM();
+  freeChunk(&chunk);
 
-  Chunk chunk2;
-  initChunk(&chunk2);
+  return 0;
+}
+
+void chunkTest() {
+  /* check that malloc and free "kind of" work */
+  char *ptr = myMalloc(8, sizeof(char));
+  myFree(ptr);
+
+  /* check that constants are written correctly */
+  Chunk chunk;
+  initChunk(&chunk);
 
   for (int i = 0; i < 1024; ++i) {
-    writeConstant(&chunk2, i, i / 2);
+    writeConstant(&chunk, i, i / 2);
   }
 
-  disassembleChunk(&chunk2, "test chunk 2");
+  disassembleChunk(&chunk, "test chunk 2");
 
   freeChunk(&chunk);
-  //freeChunk(&chunk2);
-  return 0;
 }
