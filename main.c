@@ -1,8 +1,11 @@
 #include "chunk.h"
 #include "common.h"
 #include "debug.h"
+#include "myalloc.h"
 
 int main(int argc, const char *argv[]) {
+  char *ptr = myMalloc(8, sizeof(char));
+  myFree(ptr);
   Chunk chunk;
   initChunk(&chunk);
 
@@ -21,15 +24,15 @@ int main(int argc, const char *argv[]) {
   disassembleChunk(&chunk, "test chunk");
 
   Chunk chunk2;
-  initChunk(&chunk);
+  initChunk(&chunk2);
 
   for (int i = 0; i < 1024; ++i) {
-    writeConstant(&chunk, i, i / 2);
+    writeConstant(&chunk2, i, i / 2);
   }
 
-  disassembleChunk(&chunk, "test chunk 2");
+  disassembleChunk(&chunk2, "test chunk 2");
 
   freeChunk(&chunk);
-  freeChunk(&chunk2);
+  //freeChunk(&chunk2);
   return 0;
 }
