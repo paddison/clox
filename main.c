@@ -19,7 +19,7 @@ int main(int argc, const char *argv[]) {
 
   disassembleChunk(&chunk, "test chunk");
   interpret(&chunk);
-  chunkTest();
+  // chunkTest();
   freeVM();
   freeChunk(&chunk);
 
@@ -40,7 +40,7 @@ static void chunkTest() {
   }
   writeChunk(&chunk, OP_RETURN, 123);
 
-  //disassembleChunk(&chunk, "test chunk 2");
+  // disassembleChunk(&chunk, "test chunk 2");
   interpret(&chunk);
 
   freeChunk(&chunk);
