@@ -1,5 +1,4 @@
-./build
-./debug
+build
 debug
 .cache
 compile_commands.json

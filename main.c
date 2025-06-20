@@ -4,6 +4,8 @@
 #include "myalloc.h"
 #include "vm.h"
 
+static void chunkTest();
+
 int main(int argc, const char *argv[]) {
   initVM();
   Chunk chunk;
@@ -17,13 +19,14 @@ int main(int argc, const char *argv[]) {
 
   disassembleChunk(&chunk, "test chunk");
   interpret(&chunk);
+  chunkTest();
   freeVM();
   freeChunk(&chunk);
 
   return 0;
 }
 
-void chunkTest() {
+static void chunkTest() {
   /* check that malloc and free "kind of" work */
   char *ptr = myMalloc(8, sizeof(char));
   myFree(ptr);
@@ -35,8 +38,10 @@ void chunkTest() {
   for (int i = 0; i < 1024; ++i) {
     writeConstant(&chunk, i, i / 2);
   }
+  writeChunk(&chunk, OP_RETURN, 123);
 
-  disassembleChunk(&chunk, "test chunk 2");
+  //disassembleChunk(&chunk, "test chunk 2");
+  interpret(&chunk);
 
   freeChunk(&chunk);
 }
