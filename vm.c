@@ -30,6 +30,12 @@ static InterpretResult run() {
   (uint32_t)READ_BYTE() | (uint32_t)READ_BYTE() << 8 |                         \
       (uint32_t)READ_BYTE() << 16
 #define READ_CONSTANT_LONG() (vm.chunk->constants.values[READ_LONG()])
+#define BINARY_OP(op)                                                          \
+  do {                                                                         \
+    double b = pop();                                                          \
+    double a = pop();                                                          \
+    push(a op b);                                                              \
+  } while (false)
 
   for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
@@ -44,11 +50,6 @@ static InterpretResult run() {
 #endif
     uint8_t instruction;
     switch (instruction = READ_BYTE()) {
-    case OP_RETURN: {
-      printValue(pop());
-      printf("\n");
-      return INTERPRET_OK;
-    }
     case OP_CONSTANT: {
       Value constant = READ_CONSTANT();
       push(constant);
@@ -59,6 +60,27 @@ static InterpretResult run() {
       push(constant);
       break;
     }
+
+    case OP_ADD:
+      BINARY_OP(+);
+      break;
+    case OP_SUBTRACT:
+      BINARY_OP(-);
+      break;
+    case OP_MULTIPLY:
+      BINARY_OP(*);
+      break;
+    case OP_DIVIDE:
+      BINARY_OP(/);
+      break;
+    case OP_NEGATE:
+      push(-pop());
+      break;
+    case OP_RETURN: {
+      printValue(pop());
+      printf("\n");
+      return INTERPRET_OK;
+    }
     }
   }
 
@@ -66,6 +88,7 @@ static InterpretResult run() {
 #undef READ_CONSTANT
 #undef READ_LONG
 #undef READ_CONSTANT_LONG
+#undef BINARY_OP
 }
 
 InterpretResult interpret(Chunk *chunk) {
