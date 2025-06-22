@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 
 #include "memory.h"
@@ -19,6 +20,12 @@ void writeValueArray(ValueArray *array, Value value) {
 
   array->values[array->count] = value;
   array->count++;
+}
+
+Value popValueArray(ValueArray *array) {
+  assert(array->count > 0);
+  array->count--;
+  return array->values[array->count];
 }
 
 void freeValueArray(ValueArray *array) {

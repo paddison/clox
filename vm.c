@@ -3,24 +3,29 @@
 #include "chunk.h"
 #include "common.h"
 #include "debug.h"
+#include "value.h"
 #include "vm.h"
 
 VM vm;
 
-static void resetStack() { vm.stackTop = vm.stack; }
+static void resetStack() {
+  initValueArray(&vm.stack);
+  vm.stackTop = vm.stack.values;
+}
 
 void initVM() { resetStack(); }
 
 void freeVM() {}
 
 void push(Value value) {
-  *vm.stackTop = value;
-  vm.stackTop++;
+  writeValueArray(&vm.stack, value);
+  vm.stackTop = vm.stack.values + vm.stack.count;
 }
 
 Value pop() {
+  // popValueArray does not reallocate, so the pointer will always be valid.
   vm.stackTop--;
-  return *vm.stackTop;
+  return popValueArray(&vm.stack);
 }
 
 static InterpretResult run() {
@@ -40,7 +45,7 @@ static InterpretResult run() {
   for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
     printf("          ");
-    for (Value *slot = vm.stack; slot < vm.stackTop; slot++) {
+    for (Value *slot = vm.stack.values; slot < vm.stackTop; slot++) {
       printf("[ ");
       printValue(*slot);
       printf(" ]");
