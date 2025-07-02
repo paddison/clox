@@ -25,6 +25,7 @@
 /******************************************************************************
  * local data structures
  *****************************************************************************/
+
 typedef uint64_t Align;
 
 static uint8_t HEAP[MEMORYSIZE] = {0};
@@ -43,7 +44,6 @@ typedef enum AllocErr {
   ok,
   outOfMemory,
 } AllocErr;
-
 
 /**
  * Initial element of the freeList.
@@ -74,12 +74,12 @@ static Header *freeList = &base;
 static AllocErr requestHeapSpace(size_t *requestedSize, uint8_t **addr);
 
 /**
- * \brief Growths the freelist by appending a new block of at least required 
+ * \brief Growths the freelist by appending a new block of at least required
  *        size to it.
  *        Calls requestHeapSpace internally to obtain a new block.
  *
  * \param[in]     requiredSize  The minimum size required of the new block.
- * \param[in/out] current       The element of the freelist on which to 
+ * \param[in/out] current       The element of the freelist on which to
  *                              append the block to.
  *
  * \return AllocErr
@@ -112,9 +112,8 @@ static AllocErr requestHeapSpace(size_t *requestedSize, uint8_t **addr) {
 static AllocErr growFreeList(const size_t requiredSize, Header *current) {
   size_t availableSize = requiredSize * sizeof(Header);
   Header *chunk = NULL;
-  AllocErr isMemoryAvailable = requestHeapSpace(
-      &availableSize, 
-      (uint8_t**)&chunk);
+  AllocErr isMemoryAvailable =
+      requestHeapSpace(&availableSize, (uint8_t **)&chunk);
 
   if (isMemoryAvailable == ok) {
     assert(availableSize % sizeof(Header) == 0);
@@ -124,7 +123,7 @@ static AllocErr growFreeList(const size_t requiredSize, Header *current) {
     chunk->h.next = freeList;
     chunk->h.size = availableSize;
     current->h.next = chunk;
-  } 
+  }
 
   return isMemoryAvailable;
 }
@@ -137,7 +136,8 @@ void *myMalloc(size_t size, size_t sizeOfType) {
   assert(PGSIZE % sizeof(Header) == 0);
   Header *addr = NULL;
   /* the required size needed to make an allocation of "size". */
-  /* is padded to be aligned to header and includes space for the header itself */
+  /* is padded to be aligned to header and includes space for the header itself
+   */
   const size_t requiredSize = UNITSIZE(size * sizeOfType, sizeof(Header));
   const size_t maxIter = MEMORYSIZE;
   Header *current = freeList;
@@ -147,7 +147,7 @@ void *myMalloc(size_t size, size_t sizeOfType) {
     if (current->h.size >= requiredSize) {
       /* return tail end of the chunk. */
       const size_t remainingSize = current->h.size - requiredSize;
-      addr = current + remainingSize; 
+      addr = current + remainingSize;
       addr->h.size = requiredSize;
       addr += 1;
       if (remainingSize > 0) {
@@ -172,10 +172,10 @@ void *myMalloc(size_t size, size_t sizeOfType) {
 }
 
 /* todo: clean this up */
-void myFree(void* memory) {
-  Header* chunkToFree = ((Header*) memory) - 1;
+void myFree(void *memory) {
+  Header *chunkToFree = ((Header *)memory) - 1;
   const size_t maxIter = MEMORYSIZE;
-  Header* current = freeList;
+  Header *current = freeList;
 
   for (size_t i = 0; i < maxIter; i++) {
     if (chunkToFree > current && chunkToFree < current->h.next) {
@@ -186,7 +186,7 @@ void myFree(void* memory) {
         chunkToFree->h.size += current->h.next->h.size;
         chunkToFree->h.next = current->h.next->h.next;
       } else {
-        chunkToFree->h.next = current->h.next; 
+        chunkToFree->h.next = current->h.next;
       }
       /* merge with left memory area */
       /* | ... | current M chunkToFree | current->next | ... | */
@@ -204,7 +204,7 @@ void myFree(void* memory) {
       if (current + current->h.size == chunkToFree) {
         current->h.size += chunkToFree->h.size;
       } else {
-        chunkToFree->h.next = current->h.next; 
+        chunkToFree->h.next = current->h.next;
         current->h.next = chunkToFree;
       }
       break;
@@ -217,7 +217,7 @@ void myFree(void* memory) {
         chunkToFree->h.next = current->h.next->h.next;
         current->h.next = chunkToFree;
       } else {
-        chunkToFree->h.next = current->h.next; 
+        chunkToFree->h.next = current->h.next;
         current->h.next = chunkToFree;
       }
       break;
@@ -233,37 +233,37 @@ void myFree(void* memory) {
  *
  * ============================================================================
  *
- * The  realloc()  function changes the size of the memory block pointed to by 
- * ptr to size bytes.  
- * The contents of the memory will be unchanged in the range from the start of 
- * the region up to the minimum of the old and new sizes.  
- * If the new size  is  larger than the old size, the added memory will not be 
+ * The  realloc()  function changes the size of the memory block pointed to by
+ * ptr to size bytes.
+ * The contents of the memory will be unchanged in the range from the start of
+ * the region up to the minimum of the old and new sizes.
+ * If the new size  is  larger than the old size, the added memory will not be
  * initialized.
  *
- * If ptr is NULL, then the call is equivalent to malloc(size), for all values 
+ * If ptr is NULL, then the call is equivalent to malloc(size), for all values
  * of size.
  *
- * If  size  is  equal  to zero, and ptr is not NULL, then the call is 
- * equivalent to free(ptr) (but see "Nonportable behavior" for portability 
+ * If  size  is  equal  to zero, and ptr is not NULL, then the call is
+ * equivalent to free(ptr) (but see "Nonportable behavior" for portability
  * issues).
  *
- * Unless ptr is NULL, it must have been returned by an earlier call to malloc 
- * or related functions.  If the area pointed  to  was moved, a free(ptr) is 
+ * Unless ptr is NULL, it must have been returned by an earlier call to malloc
+ * or related functions.  If the area pointed  to  was moved, a free(ptr) is
  * done.
-*/
+ */
 
 void *myRealloc(void *oldPtr, size_t size, size_t sizeOfType) {
-  void* retVal = NULL;
- /* If ptr is NULL, then the call is equivalent to malloc(size), for all values 
-    of size. */
+  void *retVal = NULL;
+  /* If ptr is NULL, then the call is equivalent to malloc(size), for all values
+     of size. */
   if (oldPtr == NULL) {
     retVal = myMalloc(size, sizeOfType);
- /* If  size  is  equal  to zero, and ptr is not NULL, then the call is 
-  equivalent to free(ptr) */
+    /* If  size  is  equal  to zero, and ptr is not NULL, then the call is
+     equivalent to free(ptr) */
   } else if (size == 0) {
     assert(retVal == NULL);
   } else {
-    Header* header = ((Header*) oldPtr) - 1;
+    Header *header = ((Header *)oldPtr) - 1;
     uint32_t currentSize = header->h.size;
     uint32_t requiredSize = UNITSIZE(size * sizeOfType, sizeof(Header));
 
@@ -272,7 +272,8 @@ void *myRealloc(void *oldPtr, size_t size, size_t sizeOfType) {
     /* Case 1: Grow memory */
     if (currentSize < requiredSize) {
       retVal = myMalloc(size, sizeOfType);
-      /* subtract 1 from current size, because we don't want to copy the header */
+      /* subtract 1 from current size, because we don't want to copy the header
+       */
       memmove(retVal, oldPtr, (currentSize - 1) * sizeof(Header));
       myFree(oldPtr);
       /* Case 2: Shrink memory */
