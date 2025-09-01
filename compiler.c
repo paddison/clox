@@ -45,6 +45,7 @@ typedef struct {
 static void unary();
 static void binary();
 static void number();
+static void string();
 static void literal();
 static void expression();
 static void grouping();
@@ -71,7 +72,7 @@ ParseRule rules[] = {
   [TOKEN_LESS]          = {NULL,     binary, PREC_COMPARISON},
   [TOKEN_LESS_EQUAL]    = {NULL,     binary, PREC_COMPARISON},
   [TOKEN_IDENTIFIER]    = {NULL,     NULL,   PREC_NONE},
-  [TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_STRING]        = {string,   NULL,   PREC_NONE},
   [TOKEN_NUMBER]        = {number,   NULL,   PREC_NONE},
   [TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},
@@ -285,6 +286,11 @@ static void unary() {
 static void number() {
   double value = strtod(parser.previous.start, NULL);
   emitConstant(NUMBER_VAL(value));
+}
+
+static void string() {
+  emitConstant(OBJ_VAL(
+      copyString(parser.previous.start + 1, parser.previous.length - 2)));
 }
 
 bool compile(const char *source, Chunk *chunk) {
