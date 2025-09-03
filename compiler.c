@@ -290,7 +290,7 @@ static void number() {
 
 static void string() {
   emitConstant(OBJ_VAL(
-      copyString(parser.previous.start + 1, parser.previous.length - 2)));
+      constString(parser.previous.start + 1, parser.previous.length - 2)));
 }
 
 bool compile(const char *source, Chunk *chunk) {

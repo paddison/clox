@@ -53,16 +53,39 @@ static bool isFalsey(Value value) {
 }
 
 static void concatenate() {
-  ObjString *b = AS_STRING(pop());
-  ObjString *a = AS_STRING(pop());
+#define CONCAT(a, b, string)                                                   \
+  do {                                                                         \
+    int length = a->length + stringB->length;                                  \
+    string = allocateEmptyString(length);                                      \
+    memcpy(string->chars, a->chars, a->length);                                \
+    memcpy(string->chars + a->length, b->chars, b->length);                    \
+    string->chars[length] = '\0';                                              \
+  } while (false)
 
-  int length = a->length + b->length;
-  ObjString *string = allocateEmptyString(length);
-  memcpy(string->chars, a->chars, a->length);
-  memcpy(string->chars + a->length, b->chars, b->length);
-  string->chars[length] = '\0';
+  ObjString *string;
+  Value b = pop();
+  Value a = pop();
+
+  if (isObjType(a, OBJ_STRING) && isObjType(b, OBJ_STRING)) {
+    ObjString *stringA = AS_STRING(a);
+    ObjString *stringB = AS_STRING(b);
+    CONCAT(stringA, stringB, string);
+  } else if (isObjType(a, OBJ_STRING) && isObjType(b, OBJ_CONST_STRING)) {
+    ObjString *stringA = AS_STRING(a);
+    ObjConstString *stringB = AS_CONST_STRING(b);
+    CONCAT(stringA, stringB, string);
+  } else if (isObjType(a, OBJ_CONST_STRING) && isObjType(b, OBJ_STRING)) {
+    ObjConstString *stringA = AS_CONST_STRING(a);
+    ObjString *stringB = AS_STRING(b);
+    CONCAT(stringA, stringB, string);
+  } else {
+    ObjConstString *stringA = AS_CONST_STRING(a);
+    ObjConstString *stringB = AS_CONST_STRING(b);
+    CONCAT(stringA, stringB, string);
+  }
 
   push(OBJ_VAL(string));
+#undef CONCAT
 }
 
 static InterpretResult run() {

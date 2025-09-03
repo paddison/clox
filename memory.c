@@ -23,6 +23,11 @@ static void freeObject(Obj *object) {
     reallocate(string, sizeof(ObjString) + string->length + 1, 0);
     break;
   }
+  case OBJ_CONST_STRING: {
+    ObjConstString *string = (ObjConstString *)object;
+    reallocate(string, sizeof(ObjConstString), 0);
+    break;
+  }
   }
 }
 

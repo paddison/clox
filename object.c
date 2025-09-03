@@ -45,10 +45,22 @@ ObjString *copyString(const char *chars, int length) {
   return allocateString(chars, length);
 }
 
+ObjConstString *constString(const char *chars, int length) {
+  ObjConstString *string = ALLOCATE_OBJ(ObjConstString, OBJ_CONST_STRING);
+  string->length = length;
+  string->chars = chars;
+  return string;
+}
+
 void printObject(Value value) {
   switch (OBJ_TYPE(value)) {
   case OBJ_STRING:
     printf("%s", AS_CSTRING(value));
     break;
+  case OBJ_CONST_STRING: {
+    ObjConstString *string = AS_CONST_STRING(value);
+    printf("%.*s", string->length, string->chars);
+    break;
+  }
   }
 }
