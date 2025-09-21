@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -16,12 +17,13 @@ static inline uint32_t hashNumber(const double number) {
     // Case 1: -0 and 0 return the same hash
     return 0;
   } else if (number != number) {
-    // Case 2: all NaN numebers return the same hash
+    // Case 2: All NaN numebers return the same hash
     // using an arbitrary large prime number.
     return 2147483647;
   } else {
-    uint32_t number_as_int = (uint32_t)number;
-    return number_as_int ^ (number_as_int >> 31);
+    // Case 3: Get the bits of the double number and perform a simple hash
+    uint64_t number_as_int = *((uint32_t *)&number);
+    return (uint32_t)(number_as_int ^ (number_as_int >> 31));
   }
 }
 
