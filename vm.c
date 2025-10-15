@@ -9,6 +9,7 @@
 #include "lines.h"
 #include "memory.h"
 #include "object.h"
+#include "table.h"
 #include "value.h"
 #include "vm.h"
 
@@ -32,10 +33,13 @@ static void runtimeError(const char *format, ...) {
 void initVM() {
   resetStack();
   vm.objects = NULL;
+
+  initTable(&vm.globals);
   initTable(&vm.strings);
 }
 
 void freeVM() {
+  freeTable(&vm.globals);
   freeTable(&vm.strings);
   freeObjects();
 }
@@ -95,6 +99,7 @@ static void concatenate() {
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+#define READ_STRING() AS_STRING(READ_CONSTANT())
 #define READ_LONG()                                                            \
   (uint32_t)READ_BYTE() | (uint32_t)READ_BYTE() << 8 |                         \
       (uint32_t)READ_BYTE() << 16
@@ -142,6 +147,16 @@ static InterpretResult run() {
     case OP_FALSE:
       push(BOOL_VAL(false));
       break;
+    case OP_POP:
+      pop();
+      break;
+    case OP_DEFINE_GLOBAL: {
+      ObjString *name = READ_STRING();
+        tableSet(&vm.globals, name, peek(0);
+        pop();
+        break;
+    }
+
     case OP_EQUAL: {
       Value a = pop();
       Value b = pop();
@@ -188,16 +203,17 @@ static InterpretResult run() {
       n->as.number = -(AS_NUMBER(*n));
       break;
     }
-    case OP_RETURN: {
+    case OP_PRINT: {
       printValue(pop());
       printf("\n");
-      return INTERPRET_OK;
+      break;
     }
     }
   }
 
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef READ_STRING
 #undef READ_LONG
 #undef READ_CONSTANT_LONG
 #undef BINARY_OP
