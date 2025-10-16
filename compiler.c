@@ -46,6 +46,7 @@ static void unary();
 static void binary();
 static void number();
 static void string();
+static void variable();
 static void literal();
 static void expression();
 static void grouping();
@@ -73,23 +74,23 @@ ParseRule rules[] = {
   [TOKEN_GREATER_EQUAL] = {NULL,     binary, PREC_COMPARISON},
   [TOKEN_LESS]          = {NULL,     binary, PREC_COMPARISON},
   [TOKEN_LESS_EQUAL]    = {NULL,     binary, PREC_COMPARISON},
-  [TOKEN_IDENTIFIER]    = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_IDENTIFIER]    = {variable, NULL,   PREC_NONE},
   [TOKEN_STRING]        = {string,   NULL,   PREC_NONE},
   [TOKEN_NUMBER]        = {number,   NULL,   PREC_NONE},
   [TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_ELSE]          = {NULL,     NULL,   PREC_NONE},
-  [TOKEN_FALSE]         = {literal,     NULL,   PREC_NONE},
+  [TOKEN_FALSE]         = {literal,  NULL,   PREC_NONE},
   [TOKEN_FOR]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_FUN]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_IF]            = {NULL,     NULL,   PREC_NONE},
-  [TOKEN_NIL]           = {literal,     NULL,   PREC_NONE},
+  [TOKEN_NIL]           = {literal,  NULL,   PREC_NONE},
   [TOKEN_OR]            = {NULL,     NULL,   PREC_NONE},
   [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
   [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_THIS]          = {NULL,     NULL,   PREC_NONE},
-  [TOKEN_TRUE]          = {literal,     NULL,   PREC_NONE},
+  [TOKEN_TRUE]          = {literal,  NULL,   PREC_NONE},
   [TOKEN_VAR]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_WHILE]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_ERROR]         = {NULL,     NULL,   PREC_NONE},
@@ -386,6 +387,13 @@ static void string() {
   emitConstant(OBJ_VAL(
       constString(parser.previous.start + 1, parser.previous.length - 2)));
 }
+
+static void namedVariable(Token name) {
+  uint8_t arg = identifierConstant(&name);
+  emitBytes(OP_GET_GLOBAL, arg);
+}
+
+static void variable() { namedVariable(parser.previous); }
 
 bool compile(const char *source, Chunk *chunk) {
   initScanner(source);

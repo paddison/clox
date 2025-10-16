@@ -150,11 +150,21 @@ static InterpretResult run() {
     case OP_POP:
       pop();
       break;
+    case OP_GET_GLOBAL: {
+      ObjString *name = READ_STRING();
+      Value value;
+      if (!tableGet(&vm.globals, name, &value)) {
+        runtimeError("Undefined variable '%s'.", name->chars);
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      push(value);
+      break;
+    }
     case OP_DEFINE_GLOBAL: {
       ObjString *name = READ_STRING();
-        tableSet(&vm.globals, name, peek(0);
-        pop();
-        break;
+      tableSet(&vm.globals, name, peek(0));
+      pop();
+      break;
     }
 
     case OP_EQUAL: {
@@ -194,6 +204,8 @@ static InterpretResult run() {
     case OP_NOT:
       push(BOOL_VAL(isFalsey(pop())));
       break;
+    case OP_RETURN:
+      return INTERPRET_OK;
     case OP_NEGATE: {
       if (!IS_NUMBER(peek(0))) {
         runtimeError("Operand must be a number.");
