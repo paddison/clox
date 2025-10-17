@@ -173,6 +173,10 @@ void *myMalloc(size_t size, size_t sizeOfType) {
 
 /* todo: clean this up */
 void myFree(void *memory) {
+  if (memory == NULL) {
+    /* Don't do anything when called with a null pointer */
+    return;
+  }
   Header *chunkToFree = ((Header *)memory) - 1;
   const size_t maxIter = MEMORYSIZE;
   Header *current = freeList;
