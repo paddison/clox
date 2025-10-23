@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -218,21 +219,23 @@ static void parsePrecedence(Precedence precedence) {
 }
 
 static uint8_t identifierConstant(Token *name) {
-  ObjString *key = copyString(name->start, name->length);
+  ObjString *variableName = copyString(name->start, name->length);
   Value index;
-  uint8_t retVal;
 
-  if (tableGet(&parser.variableNames, key, &index)) {
-    // How can i free the key here?
-    retVal = AS_INTERNAL(index);
+  // Check if the variable is already known.
+  if (tableGet(&parser.variableNames, variableName, &index)) {
+    // How can i free the VariableName here?
+    return AS_INTERNAL(index);
   } else {
-    Value key_as_value = OBJ_VAL(key);
-    uint8_t index_raw = makeConstant(key_as_value);
-    tableSet(&parser.variableNames, key, INTERNAL_VAL(index_raw));
-    retVal = index_raw;
+    Value variableNameAsValue = OBJ_VAL(variableName);
+    uint8_t indexRaw = makeConstant(variableNameAsValue);
+
+    tableSet(&parser.variableNames, variableName, INTERNAL_VAL(indexRaw));
+    return indexRaw;
   }
 
-  return retVal;
+  // Should never be reached.
+  assert(false);
 }
 
 static uint8_t parseVariable(const char *errorMessage) {
