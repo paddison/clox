@@ -53,6 +53,8 @@ static uint32_t hashValue(const Value key) {
     return hashBool(AS_BOOL(key));
   case VAL_NUMBER:
     return hashNumber(AS_NUMBER(key));
+  case VAL_INTERNAL:
+    return AS_INTERNAL(key); // No need to hash an integer
   case VAL_OBJ:
     return hashObject(AS_OBJ(key));
   case VAL_NIL:

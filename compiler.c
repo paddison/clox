@@ -6,6 +6,7 @@
 #include "common.h"
 #include "compiler.h"
 #include "scanner.h"
+#include "table.h"
 #include "value.h"
 
 #ifdef DEBUG_PRINT_CODE
@@ -17,6 +18,7 @@ typedef struct {
   Token previous;
   bool hadError;
   bool panicMode;
+  Table variableNames;
 } Parser;
 
 typedef enum {
@@ -33,7 +35,7 @@ typedef enum {
   PREC_PRIMARY
 } Precedence;
 
-typedef void (*ParseFn)(bool);
+typedef void (*ParseFn)();
 
 typedef struct {
   ParseFn prefix;
@@ -42,14 +44,14 @@ typedef struct {
 } ParseRule;
 
 // forward declarations
-static void unary(bool);
-static void binary(bool);
-static void number(bool);
-static void string(bool);
-static void variable(bool);
-static void literal(bool);
+static void unary();
+static void binary();
+static void number();
+static void string();
+static void variable();
+static void literal();
 static void expression();
-static void grouping(bool);
+static void grouping();
 static void statement();
 static void declaration();
 
@@ -57,7 +59,7 @@ static void declaration();
 ParseRule rules[] = {
   [TOKEN_LEFT_PAREN]    = {grouping, NULL,   PREC_NONE},
   [TOKEN_RIGHT_PAREN]   = {NULL,     NULL,   PREC_NONE},
-  [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE}, 
+  [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RIGHT_BRACE]   = {NULL,     NULL,   PREC_NONE},
   [TOKEN_COMMA]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_DOT]           = {NULL,     NULL,   PREC_NONE},
@@ -206,22 +208,31 @@ static void parsePrecedence(Precedence precedence) {
     return;
   }
 
-  bool canAssign = precedence <= PREC_ASSIGNMENT;
-  prefixRule(canAssign);
+  prefixRule();
 
   while (precedence <= getRule(parser.current.type)->precedence) {
     advance();
     ParseFn infixRule = getRule(parser.previous.type)->infix;
-    infixRule(canAssign);
-  }
-
-  if (canAssign && match(TOKEN_EQUAL)) {
-    error("Invalid assignment target.");
+    infixRule();
   }
 }
 
 static uint8_t identifierConstant(Token *name) {
-  return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
+  ObjString *key = copyString(name->start, name->length);
+  Value index;
+  uint8_t retVal;
+
+  if (tableGet(&parser.variableNames, key, &index)) {
+    // How can i free the key here?
+    retVal = AS_INTERNAL(index);
+  } else {
+    Value key_as_value = OBJ_VAL(key);
+    uint8_t index_raw = makeConstant(key_as_value);
+    tableSet(&parser.variableNames, key, INTERNAL_VAL(index_raw));
+    retVal = index_raw;
+  }
+
+  return retVal;
 }
 
 static uint8_t parseVariable(const char *errorMessage) {
@@ -233,7 +244,7 @@ static void defineVariable(uint8_t global) {
   emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
-static void binary(bool canAssign) {
+static void binary() {
   TokenType operatorType = parser.previous.type;
   ParseRule *rule = getRule(operatorType);
   parsePrecedence((Precedence)(rule->precedence + 1));
@@ -274,7 +285,7 @@ static void binary(bool canAssign) {
   }
 }
 
-static void literal(bool canAssign) {
+static void literal() {
   switch (parser.previous.type) {
   case TOKEN_FALSE:
     emitByte(OP_FALSE);
@@ -293,6 +304,7 @@ static void literal(bool canAssign) {
 static void expression() { parsePrecedence(PREC_ASSIGNMENT); }
 
 static void varDeclaration() {
+  // only saves the variable name to the constant array
   uint8_t global = parseVariable("Expect variable name.");
 
   if (match(TOKEN_EQUAL)) {
@@ -359,12 +371,12 @@ static void statement() {
   }
 }
 
-static void grouping(bool canAssign) {
+static void grouping() {
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-static void unary(bool canAssign) {
+static void unary() {
   TokenType operatorType = parser.previous.type;
 
   // Compile the operand.
@@ -383,30 +395,22 @@ static void unary(bool canAssign) {
   }
 }
 
-static void number(bool canAssign) {
+static void number() {
   double value = strtod(parser.previous.start, NULL);
   emitConstant(NUMBER_VAL(value));
 }
 
-static void string(bool canAssign) {
+static void string() {
   emitConstant(OBJ_VAL(
       constString(parser.previous.start + 1, parser.previous.length - 2)));
 }
 
-static void namedVariable(Token name, bool canAssign) {
+static void namedVariable(Token name) {
   uint8_t arg = identifierConstant(&name);
-
-  if (canAssign && match(TOKEN_EQUAL)) {
-    expression();
-    emitBytes(OP_SET_GLOBAL, arg);
-  } else {
-    emitBytes(OP_GET_GLOBAL, arg);
-  }
+  emitBytes(OP_GET_GLOBAL, arg);
 }
 
-static void variable(bool canAssign) {
-  namedVariable(parser.previous, canAssign);
-}
+static void variable() { namedVariable(parser.previous); }
 
 bool compile(const char *source, Chunk *chunk) {
   initScanner(source);
@@ -414,6 +418,7 @@ bool compile(const char *source, Chunk *chunk) {
 
   parser.hadError = false;
   parser.panicMode = false;
+  initTable(&parser.variableNames);
 
   advance();
 
@@ -422,5 +427,6 @@ bool compile(const char *source, Chunk *chunk) {
   }
 
   endCompiler();
+  freeTable(&parser.variableNames);
   return !parser.hadError;
 }

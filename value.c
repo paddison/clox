@@ -39,6 +39,9 @@ void printValue(Value value) {
   case VAL_NUMBER:
     printf("%g", AS_NUMBER(value));
     break;
+  case VAL_INTERNAL:
+    printf("%u", AS_INTERNAL(value));
+    break;
   case VAL_OBJ:
     printObject(value);
     break;
