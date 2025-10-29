@@ -78,6 +78,12 @@ ObjConstString *constString(const char *chars, int length) {
   return string;
 }
 
+ObjArray *allocateEmptyArray() {
+  ObjArray *array = ALLOCATE_OBJ(ObjArray, OBJ_ARRAY);
+  initValueArray(&array->array);
+  return array;
+}
+
 void printObject(Value value) {
   switch (OBJ_TYPE(value)) {
   case OBJ_STRING:
@@ -87,6 +93,20 @@ void printObject(Value value) {
     ObjConstString *string = AS_CONST_STRING(value);
     printf("%.*s", string->length, string->chars);
     break;
+  }
+  case OBJ_ARRAY: {
+    ObjArray *array = AS_ARRAY(value);
+    int count = array->array.count;
+
+    printf("[");
+
+    for (int i = 0; i < count - 1; i++) {
+      printValue(array->array.values[i]);
+      printf(", ");
+    }
+
+    printValue(array->array.values[count - 1]);
+    printf("]");
   }
   }
 }

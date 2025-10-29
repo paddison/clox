@@ -23,6 +23,15 @@ void writeValueArray(ValueArray *array, Value value) {
   array->count++;
 }
 
+bool popValueArray(ValueArray *array, Value *value) {
+  bool wasPopped = false;
+  if (array->count > 0) {
+    *value = array->values[--array->count];
+    wasPopped = true;
+  }
+  return wasPopped;
+}
+
 void freeValueArray(ValueArray *array) {
   FREE_ARRAY(Value, array->values, array->capacity);
   initValueArray(array);

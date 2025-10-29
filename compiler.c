@@ -7,6 +7,7 @@
 #include "chunk.h"
 #include "common.h"
 #include "compiler.h"
+#include "object.h"
 #include "scanner.h"
 #include "table.h"
 #include "value.h"
@@ -20,7 +21,7 @@ typedef struct {
   Token previous;
   bool hadError;
   bool panicMode;
-  Table variableNames;
+  Table globalVariableNames;
 } Parser;
 
 typedef enum {
@@ -54,6 +55,7 @@ typedef struct {
   Local locals[UINT8_COUNT];
   int localCount;
   int scopeDepth;
+  Table variablesAtIndex;
 } Compiler;
 
 // forward declarations
@@ -140,6 +142,12 @@ static void errorAt(Token *token, const char *message) {
 
 static void error(const char *message) { errorAt(&parser.previous, message); }
 
+static void fatal(const char *message) {
+  Token *token = &parser.previous;
+  fprintf(stderr, "[line %d] Fatal: %s", token->line, message);
+  exit(4);
+}
+
 static void errorAtCurrent(const char *message) {
   errorAt(&parser.current, message);
 }
@@ -206,11 +214,13 @@ static void emitConstant(Value value) {
 static void initCompiler(Compiler *compiler) {
   compiler->localCount = 0;
   compiler->scopeDepth = 0;
+  initTable(&compiler->variablesAtIndex);
   current = compiler;
 }
 
 static void endCompiler() {
   emitReturn();
+  freeTable(&current->variablesAtIndex);
 #ifdef DEBUG_PRINT_CODE
   if (!parser.hadError) {
     disassembleChunk(currentChunk(), "code");
@@ -226,6 +236,15 @@ static void endScope() {
   while (current->localCount > 0 &&
          current->locals[current->localCount - 1].depth > current->scopeDepth) {
     emitByte(OP_POP);
+    Local *local = &current->locals[current->localCount - 1];
+    ObjString *localName = copyString(local->name.start, local->name.length);
+    Value array;
+
+    if (tableGet(&current->variablesAtIndex, localName, &array)) {
+      Value _;
+      popValueArray(&AS_ARRAY(array)->array, &_);
+    }
+
     current->localCount--;
   }
 }
@@ -259,14 +278,14 @@ static uint8_t identifierConstant(Token *name) {
   Value index;
 
   // Check if the variable is already known.
-  if (tableGet(&parser.variableNames, variableName, &index)) {
+  if (tableGet(&parser.globalVariableNames, variableName, &index)) {
     // How can i free the VariableName here?
     return AS_INTERNAL(index);
   } else {
     Value variableNameAsValue = OBJ_VAL(variableName);
     uint8_t indexRaw = makeConstant(variableNameAsValue);
 
-    tableSet(&parser.variableNames, variableName, INTERNAL_VAL(indexRaw));
+    tableSet(&parser.globalVariableNames, variableName, INTERNAL_VAL(indexRaw));
     return indexRaw;
   }
 
@@ -280,7 +299,38 @@ static bool identifiersEqual(Token *a, Token *b) {
   return memcmp(a->start, b->start, a->length) == 0;
 }
 
+static bool lookupIndexOfLocal(Token name, InternalNum *index) {
+  ObjString *string = copyString(name.start, name.length);
+  Value indicesOfLocalValue;
+  bool isKnown = false;
+  if (tableGet(&current->variablesAtIndex, string, &indicesOfLocalValue)) {
+    ObjArray *indicesOfLocal = AS_ARRAY(indicesOfLocalValue);
+    if (indicesOfLocal->array.count > 0) {
+      Value foundIndex =
+          indicesOfLocal->array.values[indicesOfLocal->array.count - 1];
+      *index = AS_INTERNAL(foundIndex);
+      isKnown = true;
+    }
+  }
+
+  return isKnown;
+}
+
 static int resolveLocal(Compiler *compiler, Token *name) {
+
+  InternalNum index;
+  int foundIndex = -1;
+
+  if (lookupIndexOfLocal(*name, &index)) {
+    Local *local = &compiler->locals[index];
+    if (local->depth == -1) {
+      error("Can't read local variable in its own initializer.");
+    }
+
+    foundIndex = (int)index;
+  }
+
+  /*
   for (int i = compiler->localCount - 1; i >= 0; i--) {
     Local *local = &compiler->locals[i];
     if (identifiersEqual(name, &local->name)) {
@@ -290,8 +340,26 @@ static int resolveLocal(Compiler *compiler, Token *name) {
       return i;
     }
   }
+  */
 
-  return -1;
+  return foundIndex;
+}
+
+static void addLocalToTable(Token name) {
+  ObjString *string = copyString(name.start, name.length);
+  Value indicesOfLocal;
+  Value index = INTERNAL_VAL(current->localCount);
+
+  if (!tableGet(&current->variablesAtIndex, string, &indicesOfLocal)) {
+    indicesOfLocal = OBJ_VAL(allocateEmptyArray());
+    tableSet(&current->variablesAtIndex, string, indicesOfLocal);
+  }
+
+  if (!IS_ARRAY(indicesOfLocal)) {
+    fatal("Internal compiler error during variable lookup.");
+  }
+
+  writeValueArray(&AS_ARRAY(indicesOfLocal)->array, index);
 }
 
 static void addLocal(Token name) {
@@ -300,9 +368,13 @@ static void addLocal(Token name) {
     return;
   }
 
+  addLocalToTable(name);
+
   Local *local = &current->locals[current->localCount++];
   local->name = name;
   local->depth = -1;
+  printf("Local %.*s at depth: %d, localCount: %d\n", name.length, name.start,
+         current->scopeDepth, current->localCount);
 }
 
 static void declareVariable() {
@@ -311,6 +383,18 @@ static void declareVariable() {
 
   Token *name = &parser.previous;
 
+  uint8_t index;
+
+  if (lookupIndexOfLocal(*name, &index)) {
+    Local *local = &current->locals[index];
+
+    if (local->depth == current->scopeDepth &&
+        identifiersEqual(name, &local->name)) {
+      error("Already a variable with this name in this scope.");
+    }
+  }
+
+  /*
   for (int i = current->localCount - 1; i >= 0; i--) {
     Local *local = &current->locals[i];
     if (local->depth != -1 && local->depth < current->scopeDepth) {
@@ -321,6 +405,7 @@ static void declareVariable() {
       error("Already a variable with this name in this scope.");
     }
   }
+  */
 
   addLocal(*name);
 }
@@ -553,7 +638,7 @@ bool compile(const char *source, Chunk *chunk) {
 
   parser.hadError = false;
   parser.panicMode = false;
-  initTable(&parser.variableNames);
+  initTable(&parser.globalVariableNames);
 
   advance();
 
@@ -562,6 +647,6 @@ bool compile(const char *source, Chunk *chunk) {
   }
 
   endCompiler();
-  freeTable(&parser.variableNames);
+  freeTable(&parser.globalVariableNames);
   return !parser.hadError;
 }

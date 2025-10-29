@@ -7,6 +7,9 @@
 typedef struct Obj Obj;
 typedef struct ObjString ObjString;
 typedef struct ObjConstString ObjConstString;
+typedef struct ObjArray ObjArray;
+
+typedef uint8_t InternalNum;
 
 typedef enum {
   VAL_BOOL,
@@ -22,7 +25,7 @@ typedef struct {
     bool boolean;
     double number;
     Obj *obj;
-    uint8_t internal;
+    InternalNum internal;
   } as;
 } Value;
 
@@ -55,6 +58,7 @@ bool valuesEqual(Value a, Value b);
 void initValueArray(ValueArray *array);
 void writeValueArray(ValueArray *array, Value value);
 void freeValueArray(ValueArray *array);
+bool popValueArray(ValueArray *array, Value *value);
 void printValue(Value value);
 
 #endif

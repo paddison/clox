@@ -2,6 +2,8 @@
 
 #include "memory.h"
 #include "myalloc.h"
+#include "object.h"
+#include "value.h"
 #include "vm.h"
 
 void *reallocate(void *pointer, size_t oldSize, size_t newSize) {
@@ -27,6 +29,12 @@ static void freeObject(Obj *object) {
   case OBJ_CONST_STRING: {
     ObjConstString *string = (ObjConstString *)object;
     reallocate(string, sizeof(ObjConstString), 0);
+    break;
+  }
+  case OBJ_ARRAY: {
+    ObjArray *array = (ObjArray *)object;
+    freeValueArray(&array->array);
+    reallocate(array, sizeof(ObjArray), 0);
     break;
   }
   }

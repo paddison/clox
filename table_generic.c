@@ -10,6 +10,10 @@
 
 #define TABLE_MAX_LOAD 0.75
 
+// Forward declarations
+static uint32_t hashValue(const Value);
+
+// Implementations
 static inline uint32_t hashBool(const bool boolean) { return boolean ? 1 : 0; }
 
 static inline uint32_t hashNumber(const double number) {
@@ -36,13 +40,28 @@ static uint32_t hashString(const char *key, int length) {
   return hash;
 }
 
+static inline uint32_t hashArray(const ValueArray *arr) {
+  uint32_t hash = 2166136261u;
+
+  for (int i = 0; i < arr->count; i++) {
+    hash ^= hashValue(arr->values[i]);
+    hash *= 16777619;
+  }
+
+  return hash;
+}
+
 static inline uint32_t hashObject(const Obj *obj) {
   switch (obj->type) {
   case OBJ_STRING:
     return ((ObjString *)obj)->hash;
   case OBJ_CONST_STRING: {
-    ObjConstString *str = ((ObjConstString *)obj);
+    ObjConstString *str = (ObjConstString *)obj;
     return hashString(str->chars, str->length);
+  }
+  case OBJ_ARRAY: {
+    ObjArray *array = (ObjArray *)obj;
+    return hashArray(&array->array);
   }
   }
 }
@@ -62,23 +81,24 @@ static uint32_t hashValue(const Value key) {
   }
 }
 
-void initTable(Table *table) {
+void initTable(TableGeneric *table) {
   table->count = 0;
   table->capacity = 0;
   table->entries = NULL;
 }
 
-void freeTable(Table *table) {
-  FREE_ARRAY(Entry, table->entries, table->capacity);
+void freeTable(TableGeneric *table) {
+  FREE_ARRAY(EntryGeneric, table->entries, table->capacity);
   initTable(table);
 }
 
-static Entry *findEntry(Entry *entries, int capacity, Value *key) {
+static EntryGeneric *findEntry(EntryGeneric *entries, int capacity,
+                               Value *key) {
   uint32_t index = hashValue(*key) % capacity;
-  Entry *tombstone = NULL;
+  EntryGeneric *tombstone = NULL;
 
   for (;;) {
-    Entry *entry = &entries[index];
+    EntryGeneric *entry = &entries[index];
     if (entry->key == NULL) {
       if (IS_NIL(entry->value)) {
         // Empty entry.
@@ -96,11 +116,11 @@ static Entry *findEntry(Entry *entries, int capacity, Value *key) {
   }
 }
 
-bool tableGet(Table *table, Value *key, Value *value) {
+bool tableGet(TableGeneric *table, Value *key, Value *value) {
   if (table->count == 0)
     return false;
 
-  Entry *entry = findEntry(table->entries, table->capacity, key);
+  EntryGeneric *entry = findEntry(table->entries, table->capacity, key);
   if (entry->key == NULL)
     return false;
 
@@ -108,8 +128,8 @@ bool tableGet(Table *table, Value *key, Value *value) {
   return true;
 }
 
-static void adjustCapacity(Table *table, int capacity) {
-  Entry *entries = ALLOCATE(Entry, capacity);
+static void adjustCapacity(TableGeneric *table, int capacity) {
+  EntryGeneric *entries = ALLOCATE(EntryGeneric, capacity);
   for (int i = 0; i < capacity; i++) {
     entries[i].key = NULL;
     entries[i].value = NIL_VAL;
@@ -117,28 +137,28 @@ static void adjustCapacity(Table *table, int capacity) {
 
   table->count = 0;
   for (int i = 0; i < table->capacity; i++) {
-    Entry *entry = &table->entries[i];
+    EntryGeneric *entry = &table->entries[i];
     if (entry->key == NULL)
       continue;
 
-    Entry *dest = findEntry(entries, capacity, entry->key);
+    EntryGeneric *dest = findEntry(entries, capacity, entry->key);
     dest->key = entry->key;
     dest->value = entry->value;
     table->count++;
   }
 
-  FREE_ARRAY(Entry, table->entries, table->capacity);
+  FREE_ARRAY(EntryGeneric, table->entries, table->capacity);
   table->entries = entries;
   table->capacity = capacity;
 }
 
-bool tableSet(Table *table, Value *key, Value value) {
+bool tableSet(TableGeneric *table, Value *key, Value value) {
   if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
     int capacity = GROW_CAPACITY(table->capacity);
     adjustCapacity(table, capacity);
   }
 
-  Entry *entry = findEntry(table->entries, table->capacity, key);
+  EntryGeneric *entry = findEntry(table->entries, table->capacity, key);
   bool isNewKey = entry->key == NULL;
   if (isNewKey && IS_NIL(entry->value))
     table->count++;
@@ -148,12 +168,12 @@ bool tableSet(Table *table, Value *key, Value value) {
   return isNewKey;
 }
 
-bool tableDelete(Table *table, Value *key) {
+bool tableDelete(TableGeneric *table, Value *key) {
   if (table->count == 0)
     return false;
 
   // Find the entry
-  Entry *entry = findEntry(table->entries, table->capacity, key);
+  EntryGeneric *entry = findEntry(table->entries, table->capacity, key);
   if (entry->key == NULL)
     return false;
 
@@ -163,9 +183,9 @@ bool tableDelete(Table *table, Value *key) {
   return true;
 }
 
-void tableAddAll(Table *from, Table *to) {
+void tableAddAll(TableGeneric *from, TableGeneric *to) {
   for (int i = 0; i < from->capacity; i++) {
-    Entry *entry = &from->entries[i];
+    EntryGeneric *entry = &from->entries[i];
     if (entry->key != NULL) {
       tableSet(to, entry->key, entry->value);
     }

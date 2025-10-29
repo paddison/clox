@@ -7,19 +7,19 @@
 typedef struct {
   Value *key;
   Value value;
-} Entry;
+} EntryGeneric;
 
 typedef struct {
   int count;
   int capacity;
-  Entry *entries;
-} Table;
+  EntryGeneric *entries;
+} TableGeneric;
 
-void initTable(Table *table);
-void freeTable(Table *table);
-bool tableGet(Table* table, Value* key, Value* value);
-bool tableSet(Table *table, Value *key, Value value);
-bool tableDelete(Table* table, Value* key);
-void tableAddAll(Table* from, Table* to);
+void initTable(TableGeneric *table);
+void freeTable(TableGeneric *table);
+bool tableGet(TableGeneric *table, Value *key, Value *value);
+bool tableSet(TableGeneric *table, Value *key, Value value);
+bool tableDelete(TableGeneric *table, Value *key);
+void tableAddAll(TableGeneric *from, TableGeneric *to);
 
 #endif
