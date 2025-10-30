@@ -21,7 +21,6 @@ typedef struct {
   Token previous;
   bool hadError;
   bool panicMode;
-  Table globalVariableNames;
 } Parser;
 
 typedef enum {
@@ -49,13 +48,25 @@ typedef struct {
 typedef struct {
   Token name;
   int depth;
+  bool isConstant;
 } Local;
 
 typedef struct {
+  Token name;
+  bool isConstant;
+  InternalNum indexInChunkValues;
+} Global;
+
+typedef struct {
+  // Locals
   Local locals[UINT8_COUNT];
   int localCount;
   int scopeDepth;
   Table variablesAtIndex;
+  // Globals
+  Global globals[UINT8_COUNT];
+  int globalCount;
+  Table globalVariableNames;
 } Compiler;
 
 // forward declarations
@@ -214,13 +225,16 @@ static void emitConstant(Value value) {
 static void initCompiler(Compiler *compiler) {
   compiler->localCount = 0;
   compiler->scopeDepth = 0;
+  compiler->globalCount = 0;
   initTable(&compiler->variablesAtIndex);
+  initTable(&compiler->globalVariableNames);
   current = compiler;
 }
 
 static void endCompiler() {
   emitReturn();
   freeTable(&current->variablesAtIndex);
+  freeTable(&current->globalVariableNames);
 #ifdef DEBUG_PRINT_CODE
   if (!parser.hadError) {
     disassembleChunk(currentChunk(), "code");
@@ -273,20 +287,43 @@ static void parsePrecedence(Precedence precedence) {
   }
 }
 
-static uint8_t identifierConstant(Token *name) {
+static bool getGlobal(Token *name, Global *global) {
   ObjString *variableName = copyString(name->start, name->length);
   Value index;
+  bool wasFound = false;
+  if (tableGet(&current->globalVariableNames, variableName, &index)) {
+    *global = current->globals[AS_INTERNAL(index)];
+    wasFound = true;
+  }
 
-  // Check if the variable is already known.
-  if (tableGet(&parser.globalVariableNames, variableName, &index)) {
-    // How can i free the VariableName here?
-    return AS_INTERNAL(index);
+  return wasFound;
+}
+
+static InternalNum addGlobal(Token *name, bool isConstant) {
+  ObjString *variableName = copyString(name->start, name->length);
+  Value variableNameAsValue = OBJ_VAL(variableName);
+  uint8_t indexRaw = makeConstant(variableNameAsValue);
+  Global *global = &current->globals[current->globalCount++];
+
+  global->name = *name;
+  global->indexInChunkValues = indexRaw;
+  global->isConstant = isConstant;
+
+  tableSet(&current->globalVariableNames, variableName,
+           INTERNAL_VAL(current->globalCount - 1));
+
+  return indexRaw;
+}
+
+// Returns where it is in the constantArray
+static InternalNum identifierConstant(Token *name, bool isConstant) {
+  Value index;
+  Global *global;
+
+  if (getGlobal(name, global)) {
+    return global->indexInChunkValues;
   } else {
-    Value variableNameAsValue = OBJ_VAL(variableName);
-    uint8_t indexRaw = makeConstant(variableNameAsValue);
-
-    tableSet(&parser.globalVariableNames, variableName, INTERNAL_VAL(indexRaw));
-    return indexRaw;
+    return addGlobal(name, isConstant);
   }
 
   // Should never be reached.
@@ -330,18 +367,6 @@ static int resolveLocal(Compiler *compiler, Token *name) {
     foundIndex = (int)index;
   }
 
-  /*
-  for (int i = compiler->localCount - 1; i >= 0; i--) {
-    Local *local = &compiler->locals[i];
-    if (identifiersEqual(name, &local->name)) {
-      if (local->depth == -1) {
-        error("Can't read local variable in its own initializer.");
-      }
-      return i;
-    }
-  }
-  */
-
   return foundIndex;
 }
 
@@ -362,7 +387,7 @@ static void addLocalToTable(Token name) {
   writeValueArray(&AS_ARRAY(indicesOfLocal)->array, index);
 }
 
-static void addLocal(Token name) {
+static void addLocal(Token name, bool isConstant) {
   if (current->localCount == UINT8_COUNT) {
     error("Too many local variables in function.");
     return;
@@ -373,11 +398,12 @@ static void addLocal(Token name) {
   Local *local = &current->locals[current->localCount++];
   local->name = name;
   local->depth = -1;
+  local->isConstant = isConstant;
   printf("Local %.*s at depth: %d, localCount: %d\n", name.length, name.start,
          current->scopeDepth, current->localCount);
 }
 
-static void declareVariable() {
+static void declareVariable(bool isConstant) {
   if (current->scopeDepth == 0)
     return;
 
@@ -394,30 +420,17 @@ static void declareVariable() {
     }
   }
 
-  /*
-  for (int i = current->localCount - 1; i >= 0; i--) {
-    Local *local = &current->locals[i];
-    if (local->depth != -1 && local->depth < current->scopeDepth) {
-      break;
-    }
-
-    if (identifiersEqual(name, &local->name)) {
-      error("Already a variable with this name in this scope.");
-    }
-  }
-  */
-
-  addLocal(*name);
+  addLocal(*name, isConstant);
 }
 
-static uint8_t parseVariable(const char *errorMessage) {
+static uint8_t parseVariable(const char *errorMessage, bool isConstant) {
   consume(TOKEN_IDENTIFIER, errorMessage);
 
-  declareVariable();
+  declareVariable(isConstant);
   if (current->scopeDepth > 0)
     return 0;
 
-  return identifierConstant(&parser.previous);
+  return identifierConstant(&parser.previous, isConstant);
 }
 
 static void markInitialized() {
@@ -500,9 +513,32 @@ static void block() {
   consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
 
+/*
+ * Note: Constants have to be assigned immediately. Things like:
+ * const i
+ * if condition
+ *    i = 0
+ * else
+ *    i = 1
+ *
+ * Are not allowed. (There is no control flow at this point in the language)
+ */
+static void constDeclaration() {
+
+  uint8_t global = parseVariable("Expect variable name.", true);
+
+  consume(TOKEN_EQUAL, "Constants have to be initialized after declaration.");
+
+  expression();
+
+  consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+
+  defineVariable(global);
+}
+
 static void varDeclaration() {
   // only saves the variable name to the constant array
-  uint8_t global = parseVariable("Expect variable name.");
+  uint8_t global = parseVariable("Expect variable name.", false);
 
   if (match(TOKEN_EQUAL)) {
     expression();
@@ -552,6 +588,8 @@ static void synchronize() {
 static void declaration() {
   if (match(TOKEN_VAR)) {
     varDeclaration();
+  } else if (match(TOKEN_CONST)) {
+    constDeclaration();
   } else {
     statement();
   }
@@ -609,20 +647,39 @@ static void string(bool canAssign) {
 static void namedVariable(Token name, bool canAssign) {
   uint8_t getOp, setOp;
   int arg = resolveLocal(current, &name);
+  bool isConstant;
+  // fix this
+  //
   if (arg != -1) {
+    isConstant = current->locals[arg].isConstant;
     getOp = OP_GET_LOCAL;
     setOp = OP_SET_LOCAL;
   } else {
-    arg = identifierConstant(&name);
-    getOp = OP_GET_GLOBAL;
-    setOp = OP_SET_GLOBAL;
+    // Note: for global variables we now forbid a referencing it before it is
+    // declared. Otherwise it is very difficult to determine whether a global
+    // variable is const or not.
+    Global global;
+    if (getGlobal(&name, &global)) {
+      isConstant = global.isConstant;
+      arg = global.indexInChunkValues;
+      getOp = OP_GET_GLOBAL;
+      setOp = OP_SET_GLOBAL;
+    } else {
+      error("Can not refer to global before it is declared.");
+      return;
+    }
   }
 
   if (canAssign && match(TOKEN_EQUAL)) {
-    expression();
-    emitBytes(setOp, (uint8_t)arg);
+    if (isConstant) {
+      error("Can not assign constant");
+      return;
+    } else {
+      expression();
+      emitBytes(setOp, arg);
+    }
   } else {
-    emitBytes(getOp, (uint8_t)arg);
+    emitBytes(getOp, arg);
   }
 }
 
@@ -638,7 +695,6 @@ bool compile(const char *source, Chunk *chunk) {
 
   parser.hadError = false;
   parser.panicMode = false;
-  initTable(&parser.globalVariableNames);
 
   advance();
 
@@ -647,6 +703,5 @@ bool compile(const char *source, Chunk *chunk) {
   }
 
   endCompiler();
-  freeTable(&parser.globalVariableNames);
   return !parser.hadError;
 }

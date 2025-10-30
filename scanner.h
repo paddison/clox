@@ -43,6 +43,7 @@ typedef enum {
   TOKEN_THIS,
   TOKEN_TRUE,
   TOKEN_VAR,
+  TOKEN_CONST,
   TOKEN_WHILE,
   // Terminating tokens.
   TOKEN_ERROR,
