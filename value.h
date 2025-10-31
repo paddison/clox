@@ -9,8 +9,6 @@ typedef struct ObjString ObjString;
 typedef struct ObjConstString ObjConstString;
 typedef struct ObjArray ObjArray;
 
-typedef uint8_t InternalNum;
-
 typedef enum {
   VAL_BOOL,
   VAL_NIL,

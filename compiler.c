@@ -59,7 +59,7 @@ typedef struct {
 
 typedef struct {
   // Locals
-  Local locals[UINT8_COUNT];
+  Local locals[UINT16_COUNT];
   int localCount;
   int scopeDepth;
   Table variablesAtIndex;
@@ -207,20 +207,11 @@ static void emitReturn() {
   emitByte(OP_RETURN);
 }
 
-static uint8_t makeConstant(Value value) {
-  /* i could use the function "writeConstant" from chunk.c here */
-  int constant = addConstant(currentChunk(), value);
-  if (constant > UINT8_MAX) {
-    error("Too many constants in one chunk.");
-    return 0;
-  }
-
-  return (uint8_t)constant;
+static InternalNum makeConstant(Value value) {
+  return writeConstant(currentChunk(), value, parser.previous.line);
 }
 
-static void emitConstant(Value value) {
-  emitBytes(OP_CONSTANT, makeConstant(value));
-}
+static void emitConstant(Value value) { makeConstant(value); }
 
 static void initCompiler(Compiler *compiler) {
   compiler->localCount = 0;
@@ -302,7 +293,7 @@ static bool getGlobal(Token *name, Global *global) {
 static InternalNum addGlobal(Token *name, bool isConstant) {
   ObjString *variableName = copyString(name->start, name->length);
   Value variableNameAsValue = OBJ_VAL(variableName);
-  uint8_t indexRaw = makeConstant(variableNameAsValue);
+  InternalNum indexRaw = makeConstant(variableNameAsValue);
   Global *global = &current->globals[current->globalCount++];
 
   global->name = *name;
@@ -388,7 +379,7 @@ static void addLocalToTable(Token name) {
 }
 
 static void addLocal(Token name, bool isConstant) {
-  if (current->localCount == UINT8_COUNT) {
+  if (current->localCount == UINT16_COUNT) {
     error("Too many local variables in function.");
     return;
   }
@@ -409,7 +400,7 @@ static void declareVariable(bool isConstant) {
 
   Token *name = &parser.previous;
 
-  uint8_t index;
+  InternalNum index;
 
   if (lookupIndexOfLocal(*name, &index)) {
     Local *local = &current->locals[index];
@@ -528,9 +519,7 @@ static void constDeclaration() {
   uint8_t global = parseVariable("Expect variable name.", true);
 
   consume(TOKEN_EQUAL, "Constants have to be initialized after declaration.");
-
   expression();
-
   consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
 
   defineVariable(global);

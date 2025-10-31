@@ -33,7 +33,7 @@ void writeChunk(Chunk *chunk, uint8_t byte, int line) {
   chunk->count++;
 }
 
-int addConstant(Chunk *chunk, Value value) {
+InternalNum addConstant(Chunk *chunk, Value value) {
   writeValueArray(&chunk->constants, value);
   return chunk->constants.count - 1;
 }
@@ -50,7 +50,7 @@ int addConstant(Chunk *chunk, Value value) {
  * / OP_CONSTANT_LONG | 0C | 0B | 0A /
  * /---------------------------------/
  */
-void writeConstant(Chunk *chunk, Value value, int line) {
+InternalNum writeConstant(Chunk *chunk, Value value, int line) {
   const int address = addConstant(chunk, value);
 
   if (address >= UINT8_MAX) {
@@ -62,4 +62,6 @@ void writeConstant(Chunk *chunk, Value value, int line) {
     writeChunk(chunk, OP_CONSTANT, line);
     writeChunk(chunk, address, line);
   }
+
+  return address;
 }
