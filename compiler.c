@@ -669,6 +669,70 @@ static void whileStatement() {
   emitByte(OP_POP);
 }
 
+static void switchStatement() {
+#define MAX_NUMBER_OF_CASES 128
+  // There are two ways to compare the switch expression to each case
+  // expression:
+  // 1. We create an internal variable in which we store the value.
+  //    The variable can be popped of automatically by creating a new scope for
+  //    the switch case.
+  //    This way, there is no change to the language necessary, but we need to
+  //    read the variable for each case.
+  // 2. We create a switch case comparison which leaves the switch expression on
+  //    the stack. We pop it manually at the end.
+  //    This way, we don't need to emit unnecessary read local opcodes.
+  //
+  // For this implementation, i went with option 2.
+  int exitJumps[MAX_NUMBER_OF_CASES];
+  int numberOfJumps = 0;
+
+  consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+  consume(TOKEN_LEFT_BRACE, "Expect '{' before switch cases.");
+
+  while (match(TOKEN_SWITCH_CASE) && numberOfJumps < MAX_NUMBER_OF_CASES) {
+    expression();
+    consume(TOKEN_COLON, "Expect ':' after switch case expression.");
+    emitByte(OP_SWITCH_COMPARE);
+    int nextCase = emitJump(OP_JUMP_IF_FALSE);
+
+    while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF) &&
+           !check(TOKEN_SWITCH_DEFAULT) && !check(TOKEN_SWITCH_CASE)) {
+      statement();
+    }
+    // Pop the result of the comparison in the true branch
+    emitByte(OP_POP);
+    // Jump to the end of the switch case
+    exitJumps[numberOfJumps++] = emitJump(OP_JUMP);
+
+    // It is important to patch the jump before we pop the result of the switch
+    // case condition, otherwise the pop would not get executed by the vm.
+    patchJump(nextCase);
+    // Pop the result of the comparison in the false branch
+    emitByte(OP_POP);
+  }
+
+  if (numberOfJumps >= MAX_NUMBER_OF_CASES)
+    error("Maximum number of cases is 128.");
+
+  if (match(TOKEN_SWITCH_DEFAULT)) {
+    consume(TOKEN_COLON, "Expect ':' after 'default'.");
+    while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+      statement();
+    }
+  }
+
+  consume(TOKEN_RIGHT_BRACE, "Expect '}' after switch statement.");
+
+  for (int exitJumpIndex = 0; exitJumpIndex < numberOfJumps; exitJumpIndex++) {
+    patchJump(exitJumps[exitJumpIndex]);
+  }
+  // Pop off the expression of the switch statement.
+  emitByte(OP_POP);
+#undef MAX_NUMBER_OF_CASES
+}
+
 static void synchronize() {
   parser.panicMode = false;
 
@@ -718,6 +782,8 @@ static void statement() {
     beginScope();
     block();
     endScope();
+  } else if (match(TOKEN_SWITCH)) {
+    switchStatement();
   } else {
     expressionStatement();
   }

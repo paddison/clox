@@ -100,7 +100,7 @@ static void concatenate() {
 static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
-#define READ_SHORT() (vm.ip + 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
+#define READ_SHORT() (vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 #define READ_LONG()                                                            \
   (uint32_t)READ_BYTE() | (uint32_t)READ_BYTE() << 8 |                         \
@@ -238,6 +238,12 @@ static InterpretResult run() {
     case OP_LOOP: {
       uint16_t offset = READ_SHORT();
       vm.ip -= offset;
+      break;
+    }
+    case OP_SWITCH_COMPARE: {
+      Value switchExpression = peek(1);
+      Value caseExpression = pop();
+      push(BOOL_VAL(valuesEqual(switchExpression, caseExpression)));
       break;
     }
     case OP_RETURN:

@@ -1,0 +1,53 @@
+print("full");
+
+switch (2) {
+case 1:
+  print("one");
+case 2:
+  print("two");
+case 3:
+  print("three");
+default:
+  print("default");
+}
+
+print("only default");
+
+switch (2) {
+default:
+  print("default");
+}
+
+print("empty");
+
+switch (2) {
+}
+
+print("one case");
+
+switch (1) {
+case 1:
+  print("one");
+}
+
+print("two cases");
+switch (2) {
+case 2:
+  print("one");
+case 1:
+  print("one");
+}
+
+print("nested");
+
+switch (2) {
+case 1:
+    switch (2) {
+    default:
+        print("inner");
+        }
+case 2:
+    print("outer");
+}
+
+print("after");
