@@ -46,6 +46,7 @@ typedef enum {
   TOKEN_VAR,
   TOKEN_CONST,
   TOKEN_WHILE,
+  TOKEN_CONTINUE,
   // Switch case tokens
   TOKEN_SWITCH,
   TOKEN_SWITCH_CASE,

@@ -16,6 +16,8 @@
 #include "debug.h"
 #endif
 
+#define NO_LOOP (-1)
+
 typedef struct {
   Token current;
   Token previous;
@@ -67,6 +69,9 @@ typedef struct {
   Global globals[UINT8_COUNT];
   int globalCount;
   Table globalVariableNames;
+  // Loop Info (for continue statement)
+  int loopStart;
+  int loopScope;
 } Compiler;
 
 // forward declarations
@@ -204,6 +209,11 @@ static void emitBytes(uint8_t byte1, uint8_t byte2) {
   emitByte(byte2);
 }
 
+static void writeJumpOffset(int offset) {
+  emitByte((offset >> 8) & 0xff);
+  emitByte(offset & 0xff);
+}
+
 static void emitLoop(int loopStart) {
   emitByte(OP_LOOP);
 
@@ -211,8 +221,13 @@ static void emitLoop(int loopStart) {
   if (offset > UINT16_MAX)
     error("Loop body too large.");
 
-  emitByte((offset >> 8) & 0xff);
-  emitByte(offset & 0xff);
+  writeJumpOffset(offset);
+}
+
+static void emitJumpWithOffset(uint8_t instruction, int offset) {
+  assert(offset != NO_LOOP);
+  emitByte(instruction);
+  writeJumpOffset(offset);
 }
 
 static int emitJump(uint8_t instruction) {
@@ -249,6 +264,8 @@ static void initCompiler(Compiler *compiler) {
   compiler->localCount = 0;
   compiler->scopeDepth = 0;
   compiler->globalCount = 0;
+  compiler->loopStart = NO_LOOP;
+  compiler->loopScope = 0;
   initTable(&compiler->variablesAtIndex);
   initTable(&compiler->globalVariableNames);
   current = compiler;
@@ -284,6 +301,19 @@ static void endScope() {
 
     current->localCount--;
   }
+}
+
+static void beginLoop(int loopStart, int *previousStart, int *previousScope) {
+  *previousStart = current->loopStart;
+  *previousScope = current->loopScope;
+
+  current->loopStart = loopStart;
+  current->loopScope = current->scopeDepth;
+}
+
+static void exitLoop(int previousStart, int previousScope) {
+  current->loopStart = previousStart;
+  current->loopScope = previousScope;
 }
 
 static ParseRule *getRule(TokenType type) { return &rules[type]; }
@@ -585,6 +615,8 @@ static void expressionStatement() {
 }
 
 static void forStatement() {
+  int previousStart;
+  int previousScope;
   beginScope();
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
   if (match(TOKEN_SEMICOLON)) {
@@ -618,6 +650,8 @@ static void forStatement() {
     patchJump(bodyJump);
   }
 
+  beginLoop(loopStart, &previousStart, &previousScope);
+
   statement();
   emitLoop(loopStart);
 
@@ -626,6 +660,7 @@ static void forStatement() {
     emitByte(OP_POP);
   }
   endScope();
+  exitLoop(previousStart, previousScope);
 }
 
 static void ifStatement() {
@@ -655,11 +690,15 @@ static void printStatement() {
 }
 
 static void whileStatement() {
+  int previousStart;
+  int previousScope;
   int loopStart = currentChunk()->count;
+
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
 
+  beginLoop(loopStart, &previousStart, &previousScope);
   int exitJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
   statement();
@@ -667,6 +706,7 @@ static void whileStatement() {
 
   patchJump(exitJump);
   emitByte(OP_POP);
+  exitLoop(previousStart, previousScope);
 }
 
 static void switchStatement() {
@@ -733,6 +773,24 @@ static void switchStatement() {
 #undef MAX_NUMBER_OF_CASES
 }
 
+static void continueStatement() {
+  if (current->loopStart == NO_LOOP) {
+    error("Expect continue statement only in 'for' or 'while' loops");
+  }
+
+  assert(current->loopScope >= 0);
+
+  // pop off all the locals in nested scopes
+  for (int localIndex = current->localCount;
+       current->locals[localIndex].depth > current->loopScope &&
+       localIndex >= 0;
+       localIndex--) {
+    emitByte(OP_POP);
+  }
+
+  emitJumpWithOffset(OP_JUMP, current->loopStart);
+}
+
 static void synchronize() {
   parser.panicMode = false;
 
@@ -784,6 +842,8 @@ static void statement() {
     endScope();
   } else if (match(TOKEN_SWITCH)) {
     switchStatement();
+  } else if (match(TOKEN_CONTINUE)) {
+    continueStatement();
   } else {
     expressionStatement();
   }
