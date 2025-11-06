@@ -17,7 +17,6 @@
 #endif
 
 #define NO_LOOP (-1)
-#define MAX_NUM_OF_CONTINUE 16
 
 typedef struct {
   Token current;
