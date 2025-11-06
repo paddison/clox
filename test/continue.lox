@@ -1,0 +1,13 @@
+{
+    var i = 2;
+    while (i != 3) {
+        print i;
+        if (i == 4) {
+            var j = 4;
+            print j;
+            continue;
+        }
+        print "end";
+        i = i + 1;
+    }
+}

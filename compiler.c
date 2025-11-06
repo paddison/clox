@@ -17,6 +17,7 @@
 #endif
 
 #define NO_LOOP (-1)
+#define MAX_NUM_OF_CONTINUE 16
 
 typedef struct {
   Token current;
@@ -72,6 +73,8 @@ typedef struct {
   // Loop Info (for continue statement)
   int loopStart;
   int loopScope;
+  int continueJumps[MAX_NUM_OF_CONTINUE];
+  int numberOfContinues;
 } Compiler;
 
 // forward declarations
@@ -225,7 +228,6 @@ static void emitLoop(int loopStart) {
 }
 
 static void emitJumpWithOffset(uint8_t instruction, int offset) {
-  assert(offset != NO_LOOP);
   emitByte(instruction);
   writeJumpOffset(offset);
 }
@@ -703,6 +705,7 @@ static void whileStatement() {
   emitByte(OP_POP);
   statement();
   emitLoop(loopStart);
+  // patch the continue somehow
 
   patchJump(exitJump);
   emitByte(OP_POP);
@@ -789,6 +792,7 @@ static void continueStatement() {
   }
 
   emitJumpWithOffset(OP_JUMP, current->loopStart);
+  consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
 }
 
 static void synchronize() {
