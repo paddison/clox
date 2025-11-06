@@ -1,13 +1,35 @@
 {
     var i = 2;
-    while (i != 3) {
-        print i;
-        if (i == 4) {
-            var j = 4;
+    while (i <= 5) {
+        if (i == 3) {
+            var j = i;
+            var k = i + 2;
             print j;
+            print k;
+            i = i + 1;
             continue;
         }
-        print "end";
+
+        for (var i = 0; i < 6; i = i + 1) {
+            if (i == 3) {
+                var j = i + 2;
+                print j;
+                continue;
+            }
+
+            if (i == 4) {
+                print i;
+                continue;
+            }
+            print "for";
+        }
+
+        if (i == 4) {
+         print i;
+         i = i + 1;
+         continue;
+        }
+        print "while";
         i = i + 1;
     }
 }
