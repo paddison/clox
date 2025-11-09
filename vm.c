@@ -17,6 +17,10 @@
 
 VM vm;
 
+static Value clockNative(int argCount, Value *args);
+
+Native natives[NUMBER_OF_NATIVES] = {{clockNative, "clock"}};
+
 static Value clockNative(int argCount, Value *args) {
   return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
 }
@@ -63,7 +67,9 @@ void initVM() {
   initTable(&vm.globals);
   initTable(&vm.strings);
 
-  defineNative("clock", clockNative);
+  for (int i = 0; i < NUMBER_OF_NATIVES; i++) {
+    defineNative(natives[i].name, natives[i].fn);
+  }
 }
 
 void freeVM() {

@@ -11,6 +11,7 @@
 #include "scanner.h"
 #include "table.h"
 #include "value.h"
+#include "vm.h"
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
@@ -66,6 +67,14 @@ typedef struct {
   int loopScope;
 } LoopInfo;
 
+typedef struct {
+  // Globals
+  Table globalVariableNames;
+  Global globals[UINT8_COUNT];
+  int globalCount;
+  bool isInitialized;
+} Globals;
+
 typedef struct Compiler {
   // Each compiler compiles a function.
   struct Compiler *enclosing;
@@ -77,10 +86,6 @@ typedef struct Compiler {
   int localCount;
   int scopeDepth;
   Table variablesAtIndex;
-  // Globals
-  Global globals[UINT8_COUNT];
-  int globalCount;
-  Table globalVariableNames;
   // Loop Info (for continue statement)
   LoopInfo currentLoop;
 } Compiler;
@@ -102,7 +107,7 @@ static void or_(bool canAssign);
 
 // clang-format off
 ParseRule rules[] = {
-  [TOKEN_LEFT_PAREN]    = {grouping, call,   PREC_NONE},
+  [TOKEN_LEFT_PAREN]    = {grouping, call,   PREC_CALL},
   [TOKEN_RIGHT_PAREN]   = {NULL,     NULL,   PREC_NONE},
   [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RIGHT_BRACE]   = {NULL,     NULL,   PREC_NONE},
@@ -147,6 +152,10 @@ ParseRule rules[] = {
 
 Parser parser;
 Compiler *current = NULL;
+Globals globals;
+
+// defined in vm.c
+extern Native natives[NUMBER_OF_NATIVES];
 
 static Chunk *currentChunk() { return &current->function->chunk; }
 
@@ -269,11 +278,9 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
   compiler->localCount = 0;
   compiler->scopeDepth = 0;
   compiler->function = newFunction();
-  compiler->globalCount = 0;
   compiler->currentLoop.loopStart = NO_LOOP;
   compiler->currentLoop.loopScope = 0;
   initTable(&compiler->variablesAtIndex);
-  initTable(&compiler->globalVariableNames);
   current = compiler;
   if (type != TYPE_SCRIPT) {
     current->function->name =
@@ -290,7 +297,6 @@ static ObjFunction *endCompiler() {
   emitReturn();
   ObjFunction *function = current->function;
   freeTable(&current->variablesAtIndex);
-  freeTable(&current->globalVariableNames);
 #ifdef DEBUG_PRINT_CODE
   if (!parser.hadError) {
     disassembleChunk(currentChunk(), function->name != NULL
@@ -366,8 +372,8 @@ static bool getGlobal(Token *name, Global *global) {
   Value index;
   bool wasFound = false;
 
-  if (tableGet(&current->globalVariableNames, variableName, &index)) {
-    *global = current->globals[AS_INTERNAL(index)];
+  if (tableGet(&globals.globalVariableNames, variableName, &index)) {
+    *global = globals.globals[AS_INTERNAL(index)];
     wasFound = true;
   }
 
@@ -378,14 +384,14 @@ static InternalNum addGlobal(Token *name, bool isConstant) {
   ObjString *variableName = copyString(name->start, name->length);
   Value variableNameAsValue = OBJ_VAL(variableName);
   InternalNum indexRaw = makeConstant(variableNameAsValue);
-  Global *global = &current->globals[current->globalCount++];
+  Global *global = &globals.globals[globals.globalCount++];
 
   global->name = *name;
   global->indexInChunkValues = indexRaw;
   global->isConstant = isConstant;
 
-  tableSet(&current->globalVariableNames, variableName,
-           INTERNAL_VAL(current->globalCount - 1));
+  tableSet(&globals.globalVariableNames, variableName,
+           INTERNAL_VAL(globals.globalCount - 1));
 
   return indexRaw;
 }
@@ -1033,6 +1039,24 @@ ObjFunction *compile(const char *source) {
   initScanner(source);
   Compiler compiler;
   initCompiler(&compiler, TYPE_SCRIPT);
+
+  if (!globals.isInitialized) {
+    globals.globalCount = 0;
+    initTable(&globals.globalVariableNames);
+    globals.isInitialized = true;
+
+    for (int i = 0; i < NUMBER_OF_NATIVES; i++) {
+      Native *native = &natives[i];
+      Token dummyToken = {
+          .start = native->name,
+          .type = TOKEN_FUN,
+          .line = 0,
+          .length = strlen(native->name),
+      };
+
+      addGlobal(&dummyToken, false);
+    }
+  }
 
   parser.hadError = false;
   parser.panicMode = false;

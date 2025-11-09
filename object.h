@@ -43,6 +43,11 @@ typedef struct {
 typedef Value (*NativeFn)(int argCount, Value *args);
 
 typedef struct {
+  NativeFn fn;
+  char *name;
+} Native;
+
+typedef struct {
   Obj obj;
   NativeFn function;
 } ObjNative;
