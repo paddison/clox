@@ -59,7 +59,7 @@ typedef enum { TYPE_FUNCTION, TYPE_SCRIPT } FunctionType;
 typedef struct {
   Token name;
   bool isConstant;
-  InternalNum indexInChunkValues;
+  InternalNum indexInCurrentChunkValues;
 } Global;
 
 typedef struct {
@@ -387,7 +387,7 @@ static InternalNum addGlobal(Token *name, bool isConstant) {
   Global *global = &globals.globals[globals.globalCount++];
 
   global->name = *name;
-  global->indexInChunkValues = indexRaw;
+  global->indexInCurrentChunkValues = indexRaw;
   global->isConstant = isConstant;
 
   tableSet(&globals.globalVariableNames, variableName,
@@ -402,7 +402,7 @@ static InternalNum identifierConstant(Token *name, bool isConstant) {
   Global *global;
 
   if (getGlobal(name, global)) {
-    return global->indexInChunkValues;
+    return global->indexInCurrentChunkValues;
   } else {
     return addGlobal(name, isConstant);
   }
@@ -1009,7 +1009,7 @@ static void namedVariable(Token name, bool canAssign) {
     Global global;
     if (getGlobal(&name, &global)) {
       isConstant = global.isConstant;
-      arg = global.indexInChunkValues;
+      arg = global.indexInCurrentChunkValues;
       getOp = OP_GET_GLOBAL;
       setOp = OP_SET_GLOBAL;
     } else {
