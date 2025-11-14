@@ -14,4 +14,7 @@
 typedef uint16_t InternalNum;
 #define INTERNAL_MAX UINT16_MAX
 
+#undef DEBUG_PRINT_CODE
+#undef DEBUG_TRACE_EXECUTION
+
 #endif

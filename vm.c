@@ -112,7 +112,6 @@ static bool call(ObjFunction *function, int argCount) {
 static bool callValue(Value callee, int argCount) {
   if (IS_OBJ(callee)) {
     switch (OBJ_TYPE(callee)) {
-
     case OBJ_FUNCTION:
       return call(AS_FUNCTION(callee), argCount);
     case OBJ_NATIVE: {
@@ -172,11 +171,14 @@ static void concatenate() {
 
 static InterpretResult run() {
   CallFrame *frame = &vm.frames[vm.frameCount - 1];
+  register uint8_t *ip = frame->ip;
 
-#define READ_BYTE() (*frame->ip++)
+// #define READ_BYTE() (*frame->ip++)
+#define READ_BYTE() (*(ip++))
 
-#define READ_SHORT()                                                           \
-  (frame->ip += 2, (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
+  //#define READ_SHORT()                                                           \
+  //(frame->ip += 2, (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
+#define READ_SHORT() (ip += 2, (uint16_t)((ip[-2] << 8) | ip[-1]))
 
 #define READ_CONSTANT() (frame->function->chunk.constants.values[READ_BYTE()])
 
@@ -340,7 +342,9 @@ static InterpretResult run() {
       if (!callValue(peek(argCount), argCount)) {
         return INTERPRET_RUNTIME_ERROR;
       }
+      frame->ip = ip;
       frame = &vm.frames[vm.frameCount - 1];
+      ip = frame->ip;
       break;
     }
     case OP_RETURN: {
@@ -354,6 +358,7 @@ static InterpretResult run() {
       vm.stackTop = frame->slots;
       push(result);
       frame = &vm.frames[vm.frameCount - 1];
+      ip = frame->ip;
       break;
     }
     case OP_NEGATE: {
