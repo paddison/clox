@@ -54,6 +54,9 @@ void printValue(Value value) {
   case VAL_OBJ:
     printObject(value);
     break;
+  case VAL_ERR:
+    printf("%s", AS_ERR(value));
+    break;
   }
 }
 

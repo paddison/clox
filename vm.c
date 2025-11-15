@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,13 +18,22 @@
 
 VM vm;
 
-static Value clockNative(int argCount, Value *args);
-
-Native natives[NUMBER_OF_NATIVES] = {{clockNative, "clock", 0}};
-
 static Value clockNative(int argCount, Value *args) {
   return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
 }
+
+static Value sqrtNative(int argCount, Value *args) {
+  Value n = args[0];
+  if (!IS_NUMBER(n)) {
+    return ERR_VAL("Invalid argument type for sqrt.");
+  }
+  return NUMBER_VAL(sqrt(AS_NUMBER(n)));
+}
+
+Native natives[NUMBER_OF_NATIVES] = {
+    {clockNative, "clock", 0},
+    {sqrtNative, "sqrt", 1},
+};
 
 static void resetStack() {
   vm.stackTop = vm.stack;
@@ -117,6 +127,12 @@ static bool callNative(ObjNative *native, int argCount,
   }
 
   Value result = native->function(argCount, vm.stackTop - argCount);
+
+  if (IS_ERR(result)) {
+    runtimeError(ip, AS_ERR(result));
+    return false;
+  }
+
   vm.stackTop -= argCount + 1;
   push(result);
   return true;

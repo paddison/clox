@@ -4,5 +4,7 @@ fun fib(n) {
 }
 
 var start = clock();
-print fib(38);
+print fib(7);
 print clock() - start;
+
+print sqrt("hi");
