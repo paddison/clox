@@ -19,7 +19,7 @@ VM vm;
 
 static Value clockNative(int argCount, Value *args);
 
-Native natives[NUMBER_OF_NATIVES] = {{clockNative, "clock"}};
+Native natives[NUMBER_OF_NATIVES] = {{clockNative, "clock", 0}};
 
 static Value clockNative(int argCount, Value *args) {
   return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
@@ -30,7 +30,7 @@ static void resetStack() {
   vm.frameCount = 0;
 }
 
-static void runtimeError(const uint8_t *ip, const char *format, ...) {
+static void runtimeError(const uint8_t *const ip, const char *format, ...) {
   va_list args;
   va_start(args, format);
   vfprintf(stderr, format, args);
@@ -52,9 +52,9 @@ static void runtimeError(const uint8_t *ip, const char *format, ...) {
   resetStack();
 }
 
-static void defineNative(const char *name, NativeFn function) {
-  push(OBJ_VAL(copyString(name, (int)strlen(name))));
-  push(OBJ_VAL(newNative(function)));
+static void defineNative(Native native) {
+  push(OBJ_VAL(copyString(native.name, (int)strlen(native.name))));
+  push(OBJ_VAL(newNative(native.fn, native.arity)));
   tableSet(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
   pop();
   pop();
@@ -68,7 +68,7 @@ void initVM() {
   initTable(&vm.strings);
 
   for (int i = 0; i < NUMBER_OF_NATIVES; i++) {
-    defineNative(natives[i].name, natives[i].fn);
+    defineNative(natives[i]);
   }
 }
 
@@ -109,17 +109,26 @@ static bool call(ObjFunction *function, int argCount, const uint8_t *ip) {
   return true;
 }
 
+static bool callNative(ObjNative *native, int argCount,
+                       const uint8_t *const ip) {
+  if (native->arity != argCount) {
+    runtimeError(ip, "Incorrect number of arguments.");
+    return false;
+  }
+
+  Value result = native->function(argCount, vm.stackTop - argCount);
+  vm.stackTop -= argCount + 1;
+  push(result);
+  return true;
+}
+
 static bool callValue(uint8_t *ip, Value callee, int argCount) {
   if (IS_OBJ(callee)) {
     switch (OBJ_TYPE(callee)) {
     case OBJ_FUNCTION:
       return call(AS_FUNCTION(callee), argCount, ip);
     case OBJ_NATIVE: {
-      NativeFn native = AS_NATIVE(callee);
-      Value result = native(argCount, vm.stackTop - argCount);
-      vm.stackTop -= argCount + 1;
-      push(result);
-      return true;
+      return callNative(AS_NATIVE(callee), argCount, ip);
     }
     default:
       break;

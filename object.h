@@ -6,14 +6,14 @@
 #include "value.h"
 
 // clang-format off
-#define OBJ_TYPE(value)      (AS_OBJ(value)->type)
+#define OBJ_TYPE(value)         (AS_OBJ(value)->type)
 
 #define IS_FUNCTION(value)      (isObjType(value, OBJ_FUNCTION))
 #define IS_STRING(value)        (isObjType(value, OBJ_STRING) || isObjType(value, OBJ_CONST_STRING))
 #define IS_ARRAY(value)         (isObjType(value, OBJ_ARRAY))
 
 #define AS_FUNCTION(value)      ((ObjFunction*)   AS_OBJ(value))
-#define AS_NATIVE(value)        (((ObjNative*)    AS_OBJ(value))->function)
+#define AS_NATIVE(value)        (((ObjNative*)    AS_OBJ(value)))
 #define AS_STRING(value)        ((ObjString*)     AS_OBJ(value))
 #define AS_CONST_STRING(value)  ((ObjConstString*)AS_OBJ(value))
 #define AS_CSTRING(value)       (((ObjString*)    AS_OBJ(value))->chars)
@@ -45,11 +45,13 @@ typedef Value (*NativeFn)(int argCount, Value *args);
 typedef struct {
   NativeFn fn;
   char *name;
+  int arity;
 } Native;
 
 typedef struct {
   Obj obj;
   NativeFn function;
+  int arity;
 } ObjNative;
 
 struct ObjString {
@@ -71,7 +73,7 @@ struct ObjArray {
 };
 
 ObjFunction *newFunction();
-ObjNative *newNative(NativeFn function);
+ObjNative *newNative(NativeFn function, int arity);
 ObjString *allocateEmptyString(const int length);
 ObjString *takeString(char *chars, int length);
 ObjString *copyString(const char *chars, int length);
