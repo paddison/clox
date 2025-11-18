@@ -12,7 +12,7 @@
 #define NUMBER_OF_NATIVES 2
 
 typedef struct {
-  ObjFunction *function;
+  ObjClosure *closure;
   uint8_t *ip;
   Value *slots;
 } CallFrame;

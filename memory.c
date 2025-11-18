@@ -46,6 +46,10 @@ static void freeObject(Obj *object) {
     reallocate(array, sizeof(ObjArray), 0);
     break;
   }
+  case OBJ_CLOSURE: {
+    FREE(ObjClosure, object);
+    break;
+  }
   }
 }
 
