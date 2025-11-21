@@ -262,7 +262,21 @@ static InternalNum makeConstant(Value value) {
   return writeConstant(currentChunk(), value, parser.previous.line);
 }
 
-static void emitConstant(Value value) { makeConstant(value); }
+static void emitConstant(Value value) {
+  int address = makeConstant(value);
+  int line = parser.previous.line;
+  Chunk *chunk = currentChunk();
+
+  if (address >= UINT8_MAX) {
+    writeChunk(chunk, OP_CONSTANT_LONG, line);
+    writeChunk(chunk, (address & 0xFF), line);
+    writeChunk(chunk, ((address >> 8) & 0xFF), line);
+    writeChunk(chunk, ((address >> 16) & 0xFF), line);
+  } else {
+    writeChunk(chunk, OP_CONSTANT, line);
+    writeChunk(chunk, address, line);
+  }
+}
 
 static void patchJump(int offset) {
   // -2 to adjust for the bytecode of the jump offset itself.
@@ -423,11 +437,12 @@ static bool identifiersEqual(Token *a, Token *b) {
   return memcmp(a->start, b->start, a->length) == 0;
 }
 
-static bool lookupIndexOfLocal(Token name, InternalNum *index) {
+static bool lookupIndexOfLocal(Token name, Compiler *compiler,
+                               InternalNum *index) {
   ObjString *string = copyString(name.start, name.length);
   Value indicesOfLocalValue;
   bool isKnown = false;
-  if (tableGet(&current->variablesAtIndex, string, &indicesOfLocalValue)) {
+  if (tableGet(&compiler->variablesAtIndex, string, &indicesOfLocalValue)) {
     ObjArray *indicesOfLocal = AS_ARRAY(indicesOfLocalValue);
     if (indicesOfLocal->array.count > 0) {
       Value foundIndex =
@@ -445,7 +460,7 @@ static int resolveLocal(Compiler *compiler, Token *name) {
   InternalNum index;
   int foundIndex = -1;
 
-  if (lookupIndexOfLocal(*name, &index)) {
+  if (lookupIndexOfLocal(*name, compiler, &index)) {
     Local *local = &compiler->locals[index];
     if (local->depth == -1) {
       error("Can't read local variable in its own initializer.");
@@ -536,7 +551,7 @@ static void declareVariable(bool isConstant) {
 
   InternalNum index;
 
-  if (lookupIndexOfLocal(*name, &index)) {
+  if (lookupIndexOfLocal(*name, current, &index)) {
     Local *local = &current->locals[index];
 
     if (local->depth == current->scopeDepth &&

@@ -29,6 +29,7 @@ typedef enum {
   OBJ_CONST_STRING,
   OBJ_ARRAY,
   OBJ_CLOSURE,
+  OBJ_UPVALUE,
 } ObjType;
 
 struct Obj {
@@ -65,6 +66,11 @@ struct ObjString {
   char chars[];
 };
 
+typedef struct ObjUpvalue {
+  Obj obj;
+  Value *location;
+} ObjUpvalue;
+
 struct ObjConstString {
   Obj obj;
   int length;
@@ -74,6 +80,8 @@ struct ObjConstString {
 typedef struct {
   Obj obj;
   ObjFunction *function;
+  ObjUpvalue **upvalues;
+  int upvalueCount;
 } ObjClosure;
 
 struct ObjArray {
@@ -87,6 +95,7 @@ ObjNative *newNative(NativeFn function, int arity);
 ObjString *allocateEmptyString(const int length);
 ObjString *takeString(char *chars, int length);
 ObjString *copyString(const char *chars, int length);
+ObjUpvalue *newUpvalue(Value *slot);
 ObjConstString *constString(const char *chars, int length);
 ObjArray *allocateEmptyArray();
 void printObject(Value value);

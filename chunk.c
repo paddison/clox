@@ -53,15 +53,5 @@ InternalNum addConstant(Chunk *chunk, Value value) {
 InternalNum writeConstant(Chunk *chunk, Value value, int line) {
   const int address = addConstant(chunk, value);
 
-  if (address >= UINT8_MAX) {
-    writeChunk(chunk, OP_CONSTANT_LONG, line);
-    writeChunk(chunk, (address & 0xFF), line);
-    writeChunk(chunk, ((address >> 8) & 0xFF), line);
-    writeChunk(chunk, ((address >> 16) & 0xFF), line);
-  } else {
-    writeChunk(chunk, OP_CONSTANT, line);
-    writeChunk(chunk, address, line);
-  }
-
   return address;
 }
