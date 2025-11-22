@@ -35,6 +35,7 @@ typedef enum {
   OP_LOOP,
   OP_SWITCH_COMPARE,
   OP_CLOSURE,
+  OP_CLOSE_UPVALUE,
   OP_RETURN,
 } OpCode;
 
