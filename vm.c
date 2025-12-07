@@ -102,10 +102,26 @@ Value pop() {
 
 static Value peek(int distance) { return vm.stackTop[-1 - distance]; }
 
-static bool call(ObjClosure *closure, int argCount, const uint8_t *ip) {
-  if (argCount != closure->function->arity) {
-    runtimeError(ip, "Expected %d arguments but got %d.",
-                 closure->function->arity, argCount);
+static bool verifyArgCount(int argCount, int arity, const uint8_t *ip) {
+  if (argCount != arity) {
+    runtimeError(ip, "Expected %d arguments but got %d.", arity, argCount);
+    return false;
+  } else {
+    return true;
+  }
+}
+
+static bool callFunction(ObjFunction *function, int argCount,
+                         const uint8_t *ip) {
+  if (!verifyArgCount(argCount, function->arity, ip)) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool callClosure(ObjClosure *closure, int argCount, const uint8_t *ip) {
+  if (!verifyArgCount(argCount, closure->function->arity, ip)) {
     return false;
   }
 
@@ -143,8 +159,10 @@ static bool callNative(ObjNative *native, int argCount,
 static bool callValue(uint8_t *ip, Value callee, int argCount) {
   if (IS_OBJ(callee)) {
     switch (OBJ_TYPE(callee)) {
+    case OBJ_FUNCTION:
+      return callFunction(AS_FUNCTION(callee), argCount, ip);
     case OBJ_CLOSURE:
-      return call(AS_CLOSURE(callee), argCount, ip);
+      return callClosure(AS_CLOSURE(callee), argCount, ip);
     case OBJ_NATIVE: {
       return callNative(AS_NATIVE(callee), argCount, ip);
     }
@@ -414,6 +432,11 @@ static InterpretResult run() {
       ip = frame->ip;
       break;
     }
+    case OP_FUNCTION: {
+      ObjFunction *function = AS_FUNCTION(READ_CONSTANT());
+      push(OBJ_VAL(function));
+      break;
+    }
     case OP_CLOSURE: {
       ObjFunction *function = AS_FUNCTION(READ_CONSTANT());
       ObjClosure *closure = newClosure(function);
@@ -483,7 +506,7 @@ InterpretResult interpret(const char *source) {
   ObjClosure *closure = newClosure(function);
   pop();
   push(OBJ_VAL(closure));
-  call(closure, 0, vm.frames[0].ip);
+  callClosure(closure, 0, vm.frames[0].ip);
 
   return run();
 }
