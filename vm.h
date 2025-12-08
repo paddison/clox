@@ -13,6 +13,8 @@
 
 typedef struct {
   ObjClosure *closure;
+  /* The function must always be the one wrapped by the current closure */
+  ObjFunction *function;
   uint8_t *ip;
   Value *slots;
 } CallFrame;
