@@ -10,7 +10,7 @@
 /**
  * 4 megabyte of memory
  */
-#define MEMORYSIZE (4096 * 1000)
+#define MEMORYSIZE (4096 * 2000)
 /**
  * One "page" is 4k
  */
