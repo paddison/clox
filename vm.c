@@ -180,6 +180,15 @@ static ObjUpvalue *captureUpvalue(Value *local) {
   return createdUpvalue;
 }
 
+static ObjUpvalue *copyUpvalue(Value *local) {
+  ObjUpvalue *createdUpvalue = newUpvalue(local);
+
+  createdUpvalue->next = vm.openUpvalues;
+  vm.openUpvalues = createdUpvalue;
+
+  return createdUpvalue;
+}
+
 static void closeUpvalues(Value *last) {
   while (vm.openUpvalues != NULL && vm.openUpvalues->location >= last) {
     ObjUpvalue *upvalue = vm.openUpvalues;
@@ -419,15 +428,20 @@ static InterpretResult run() {
       ObjClosure *closure = newClosure(function);
       push(OBJ_VAL(closure));
       for (int i = 0; i < closure->upvalueCount; i++) {
-        uint8_t isLocal = READ_BYTE();
+        UpValueType upValueType = READ_BYTE();
         uint8_t index = READ_BYTE();
-        if (isLocal) {
+        switch (upValueType) {
+        case TypeLocal:
           closure->upvalues[i] = captureUpvalue(frame->slots + index);
-        } else {
+          break;
+        case TypeUpValue:
           closure->upvalues[i] = frame->closure->upvalues[index];
+          break;
+        case TypeLoop:
+          closure->upvalues[i] = copyUpvalue(frame->slots + index);
+          break;
         }
       }
-      break;
     }
     case OP_CLOSE_UPVALUE:
       closeUpvalues(vm.stackTop - 1);

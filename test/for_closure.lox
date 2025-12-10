@@ -1,0 +1,16 @@
+var one = nil;
+var two = nil;
+
+for (var i = 0; i < 2; i = i + 1) {
+    fun closure() {
+        print i;
+    }
+    if (i == 0) {
+        one = closure;
+    } else if (i == 1) {
+	two = closure;
+    }
+}
+
+one();
+two();

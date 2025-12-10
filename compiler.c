@@ -52,12 +52,13 @@ typedef struct {
   Token name;
   int depth;
   bool isConstant;
+  bool isLoopVariable;
   bool isCaptured;
 } Local;
 
 typedef struct {
   uint8_t index;
-  bool isLocal;
+  UpValueType type;
 } Upvalue;
 
 typedef enum { TYPE_FUNCTION, TYPE_SCRIPT } FunctionType;
@@ -479,12 +480,13 @@ static int resolveLocal(Compiler *compiler, Token *name) {
   return foundIndex;
 }
 
-static int addUpvalue(Compiler *compiler, uint8_t index, bool isLocal) {
+static int addUpvalue(Compiler *compiler, uint8_t index,
+                      UpValueType upValueType) {
   int upvalueCount = compiler->function->upvalueCount;
 
   for (int i = 0; i < upvalueCount; i++) {
     Upvalue *upvalue = &compiler->upvalues[i];
-    if (upvalue->index == index && upvalue->isLocal == isLocal) {
+    if (upvalue->index == index && (upValueType == TypeLocal)) {
       return i;
     }
   }
@@ -494,7 +496,7 @@ static int addUpvalue(Compiler *compiler, uint8_t index, bool isLocal) {
     return 0;
   }
 
-  compiler->upvalues[upvalueCount].isLocal = isLocal;
+  compiler->upvalues[upvalueCount].type = upValueType;
   compiler->upvalues[upvalueCount].index = index;
   return compiler->function->upvalueCount++;
 }
@@ -507,12 +509,18 @@ static int resolveUpvalue(Compiler *compiler, Token *name) {
 
   if (local != -1) {
     compiler->enclosing->locals[local].isCaptured = true;
-    return addUpvalue(compiler, (uint8_t)local, true);
+    UpValueType type = compiler->enclosing->locals[local].isLoopVariable
+                           ? TypeLoop
+                           : TypeLocal;
+    return addUpvalue(compiler, (uint8_t)local, TypeLocal);
   }
 
   int upvalue = resolveUpvalue(compiler->enclosing, name);
   if (upvalue != -1) {
-    return addUpvalue(compiler, (uint8_t)upvalue, false);
+    UpValueType type = compiler->enclosing->locals[upvalue].isLoopVariable
+                           ? TypeLoop
+                           : TypeUpValue;
+    return addUpvalue(compiler, (uint8_t)upvalue, TypeUpValue);
   }
 
   return -1;
@@ -535,7 +543,7 @@ static void addLocalToTable(Token name) {
   writeValueArray(&AS_ARRAY(indicesOfLocal)->array, index);
 }
 
-static void addLocal(Token name, bool isConstant) {
+static void addLocal(Token name, bool isConstant, bool isLoopVariable) {
   if (current->localCount == UINT16_COUNT) {
     error("Too many local variables in function.");
     return;
@@ -547,12 +555,13 @@ static void addLocal(Token name, bool isConstant) {
   local->name = name;
   local->depth = -1;
   local->isConstant = isConstant;
+  local->isLoopVariable = isLoopVariable;
   local->isCaptured = false;
   printf("Local %.*s at depth: %d, localCount: %d\n", name.length, name.start,
          current->scopeDepth, current->localCount);
 }
 
-static void declareVariable(bool isConstant) {
+static void declareVariable(bool isConstant, bool isLoopVariable) {
   if (current->scopeDepth == 0)
     return;
 
@@ -569,13 +578,14 @@ static void declareVariable(bool isConstant) {
     }
   }
 
-  addLocal(*name, isConstant);
+  addLocal(*name, isConstant, isLoopVariable);
 }
 
-static uint8_t parseVariable(const char *errorMessage, bool isConstant) {
+static uint8_t parseVariable(const char *errorMessage, bool isConstant,
+                             bool isLoopVariable) {
   consume(TOKEN_IDENTIFIER, errorMessage);
 
-  declareVariable(isConstant);
+  declareVariable(isConstant, isLoopVariable);
   if (current->scopeDepth > 0)
     return 0;
 
@@ -705,7 +715,7 @@ static void function(FunctionType type) {
       if (current->function->arity > 255) {
         errorAtCurrent("Can't have more than 255 parameters.");
       }
-      uint8_t constant = parseVariable("Expect parameter name.", false);
+      uint8_t constant = parseVariable("Expect parameter name.", false, false);
       defineVariable(constant);
     } while (match(TOKEN_COMMA));
   }
@@ -717,13 +727,13 @@ static void function(FunctionType type) {
   emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
 
   for (int i = 0; i < function->upvalueCount; i++) {
-    emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+    emitByte(compiler.upvalues[i].type);
     emitByte(compiler.upvalues[i].index);
   }
 }
 
 static void funDeclaration() {
-  uint8_t global = parseVariable("Expect function name.", false);
+  uint8_t global = parseVariable("Expect function name.", false, false);
   markInitialized();
   function(TYPE_FUNCTION);
   defineVariable(global);
@@ -741,7 +751,7 @@ static void funDeclaration() {
  */
 static void constDeclaration() {
 
-  uint8_t global = parseVariable("Expect variable name.", true);
+  uint8_t global = parseVariable("Expect variable name.", true, false);
 
   consume(TOKEN_EQUAL, "Constants have to be initialized after declaration.");
   expression();
@@ -750,9 +760,10 @@ static void constDeclaration() {
   defineVariable(global);
 }
 
-static void varDeclaration() {
+static void varDeclaration(bool isLoopVariable) {
   // only saves the variable name to the constant array
-  uint8_t global = parseVariable("Expect variable name.", false);
+  uint8_t global =
+      parseVariable("Expect variable name.", false, isLoopVariable);
 
   if (match(TOKEN_EQUAL)) {
     expression();
@@ -776,7 +787,7 @@ static void forStatement() {
   if (match(TOKEN_SEMICOLON)) {
     // No initializer.
   } else if (match(TOKEN_VAR)) {
-    varDeclaration();
+    varDeclaration(true);
   } else {
     expressionStatement();
   }
@@ -985,7 +996,7 @@ static void declaration() {
   if (match(TOKEN_FUN)) {
     funDeclaration();
   } else if (match(TOKEN_VAR)) {
-    varDeclaration();
+    varDeclaration(false);
   } else if (match(TOKEN_CONST)) {
     constDeclaration();
   } else {
