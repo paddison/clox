@@ -12,8 +12,11 @@ void *reallocate(void *pointer, size_t oldSize, size_t newSize) {
     return NULL;
   }
 
-  // void *result = realloc(pointer, newSize);
+#ifdef USE_CUSTOM_MALLOC
   void *result = myRealloc(pointer, newSize, 1);
+#else
+  void *result = realloc(pointer, newSize);
+#endif
   if (result == NULL)
     exit(1);
   return result;
