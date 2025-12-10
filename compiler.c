@@ -58,7 +58,7 @@ typedef struct {
 
 typedef struct {
   uint8_t index;
-  UpValueType type;
+  UpvalueType type;
 } Upvalue;
 
 typedef enum { TYPE_FUNCTION, TYPE_SCRIPT } FunctionType;
@@ -481,7 +481,7 @@ static int resolveLocal(Compiler *compiler, Token *name) {
 }
 
 static int addUpvalue(Compiler *compiler, uint8_t index,
-                      UpValueType upValueType) {
+                      UpvalueType upValueType) {
   int upvalueCount = compiler->function->upvalueCount;
 
   for (int i = 0; i < upvalueCount; i++) {
@@ -509,17 +509,17 @@ static int resolveUpvalue(Compiler *compiler, Token *name) {
 
   if (local != -1) {
     compiler->enclosing->locals[local].isCaptured = true;
-    UpValueType type = compiler->enclosing->locals[local].isLoopVariable
-                           ? TypeLoop
-                           : TypeLocal;
+    UpvalueType type = compiler->enclosing->locals[local].isLoopVariable
+                           ? TYPE_LOOP
+                           : TYPE_LOCAL;
     return addUpvalue(compiler, (uint8_t)local, type);
   }
 
   int upvalue = resolveUpvalue(compiler->enclosing, name);
   if (upvalue != -1) {
-    UpValueType type = compiler->enclosing->locals[upvalue].isLoopVariable
-                           ? TypeLoop
-                           : TypeUpValue;
+    UpvalueType type = compiler->enclosing->locals[upvalue].isLoopVariable
+                           ? TYPE_LOOP
+                           : TYPE_UPVALUE;
     return addUpvalue(compiler, (uint8_t)upvalue, type);
   }
 
@@ -727,7 +727,7 @@ static void function(FunctionType type) {
   emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
 
   for (int i = 0; i < function->upvalueCount; i++) {
-    emitByte(compiler.upvalues[i].type);
+    emitByte((uint8_t)compiler.upvalues[i].type);
     emitByte(compiler.upvalues[i].index);
   }
 }

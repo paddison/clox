@@ -1,0 +1,34 @@
+var one = nil;
+var two = nil;
+
+fun outer() {
+	for (var i = 0; i < 2; i = i + 1) {
+		fun middle() {
+			fun inner() {
+				print i;
+			}
+			print "middle";
+
+			return inner;
+		}
+
+		if (i == 0) {
+			one = middle;
+		}
+		if (i == 1) {
+			two = middle;
+		}
+	}
+	print "outer";
+}
+
+print one;
+print two;
+
+outer();
+
+print one;
+print two;
+
+one()();
+two()();

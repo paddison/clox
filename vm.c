@@ -431,16 +431,16 @@ static InterpretResult run() {
       ObjClosure *closure = newClosure(function);
       push(OBJ_VAL(closure));
       for (int i = 0; i < closure->upvalueCount; i++) {
-        UpValueType upValueType = READ_BYTE();
+        UpvalueType upValueType = READ_BYTE();
         uint8_t index = READ_BYTE();
         switch (upValueType) {
-        case TypeLocal:
+        case TYPE_LOCAL:
           closure->upvalues[i] = captureUpvalue(frame->slots + index);
           break;
-        case TypeUpValue:
+        case TYPE_UPVALUE:
           closure->upvalues[i] = frame->closure->upvalues[index];
           break;
-        case TypeLoop:
+        case TYPE_LOOP:
           closure->upvalues[i] = copyUpvalue(frame->slots + index);
           break;
         }

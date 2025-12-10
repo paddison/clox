@@ -5,10 +5,10 @@
 #include "vm.h"
 
 typedef enum {
-  TypeUpValue,
-  TypeLocal,
-  TypeLoop,
-} UpValueType;
+  TYPE_UPVALUE,
+  TYPE_LOCAL,
+  TYPE_LOOP,
+} UpvalueType;
 
 ObjFunction *compile(const char *source);
 
