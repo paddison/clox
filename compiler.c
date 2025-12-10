@@ -486,7 +486,7 @@ static int addUpvalue(Compiler *compiler, uint8_t index,
 
   for (int i = 0; i < upvalueCount; i++) {
     Upvalue *upvalue = &compiler->upvalues[i];
-    if (upvalue->index == index && (upValueType == TypeLocal)) {
+    if (upvalue->index == index && (upvalue->type == upValueType)) {
       return i;
     }
   }
@@ -512,7 +512,7 @@ static int resolveUpvalue(Compiler *compiler, Token *name) {
     UpValueType type = compiler->enclosing->locals[local].isLoopVariable
                            ? TypeLoop
                            : TypeLocal;
-    return addUpvalue(compiler, (uint8_t)local, TypeLocal);
+    return addUpvalue(compiler, (uint8_t)local, type);
   }
 
   int upvalue = resolveUpvalue(compiler->enclosing, name);
@@ -520,7 +520,7 @@ static int resolveUpvalue(Compiler *compiler, Token *name) {
     UpValueType type = compiler->enclosing->locals[upvalue].isLoopVariable
                            ? TypeLoop
                            : TypeUpValue;
-    return addUpvalue(compiler, (uint8_t)upvalue, TypeUpValue);
+    return addUpvalue(compiler, (uint8_t)upvalue, type);
   }
 
   return -1;

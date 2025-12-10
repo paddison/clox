@@ -183,7 +183,10 @@ static ObjUpvalue *captureUpvalue(Value *local) {
 static ObjUpvalue *copyUpvalue(Value *local) {
   ObjUpvalue *createdUpvalue = newUpvalue(local);
 
+  createdUpvalue->closed = *createdUpvalue->location;
+  createdUpvalue->location = &createdUpvalue->closed;
   createdUpvalue->next = vm.openUpvalues;
+
   vm.openUpvalues = createdUpvalue;
 
   return createdUpvalue;
@@ -442,6 +445,7 @@ static InterpretResult run() {
           break;
         }
       }
+      break;
     }
     case OP_CLOSE_UPVALUE:
       closeUpvalues(vm.stackTop - 1);
