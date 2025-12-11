@@ -17,6 +17,7 @@
 #include "debug.h"
 #endif
 
+#define LOCAL_MAX 4096
 #define NO_LOOP (-1)
 
 typedef struct {
@@ -88,7 +89,7 @@ typedef struct Compiler {
   ObjFunction *function;
   FunctionType type;
   // Locals
-  Local locals[UINT16_COUNT];
+  Local locals[LOCAL_MAX];
   int localCount;
   Upvalue upvalues[UINT8_COUNT];
   int scopeDepth;
