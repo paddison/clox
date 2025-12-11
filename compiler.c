@@ -18,6 +18,7 @@
 #endif
 
 #define NO_LOOP (-1)
+#define LOCAL_MAX 4096
 
 typedef struct {
   Token current;
@@ -89,7 +90,7 @@ typedef struct Compiler {
   ObjFunction *function;
   FunctionType type;
   // Locals
-  Local locals[UINT16_COUNT];
+  Local locals[LOCAL_MAX];
   int localCount;
   Upvalue upvalues[UINT8_COUNT];
   int scopeDepth;
@@ -312,6 +313,7 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
   Local *local = &current->locals[current->localCount++];
   local->depth = 0;
   local->isCaptured = false;
+  local->isLoopVariable = false;
   local->isConstant = false;
   local->name.start = "";
   local->name.length = 0;
