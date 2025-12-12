@@ -489,6 +489,7 @@ static int addUpvalue(Compiler *compiler, uint8_t index,
   for (int i = 0; i < upvalueCount; i++) {
     Upvalue *upvalue = &compiler->upvalues[i];
     if (upvalue->index == index && (upvalue->type == upValueType)) {
+      printf("capture local more than once\n");
       return i;
     }
   }
@@ -512,16 +513,17 @@ static int resolveUpvalue(Compiler *compiler, Token *name) {
   if (local != -1) {
     compiler->enclosing->locals[local].isCaptured = true;
     UpvalueType type = compiler->enclosing->locals[local].isLoopVariable
-                           ? TYPE_LOOP
+                           ? TYPE_LOOP_LOCAL
                            : TYPE_LOCAL;
     return addUpvalue(compiler, (uint8_t)local, type);
   }
 
   int upvalue = resolveUpvalue(compiler->enclosing, name);
   if (upvalue != -1) {
-    UpvalueType type = compiler->enclosing->locals[upvalue].isLoopVariable
-                           ? TYPE_LOOP
-                           : TYPE_UPVALUE;
+    UpvalueType type =
+        compiler->enclosing->upvalues[upvalue].type == TYPE_LOOP_LOCAL
+            ? TYPE_LOOP_UPVALUE
+            : TYPE_UPVALUE;
     return addUpvalue(compiler, (uint8_t)upvalue, type);
   }
 

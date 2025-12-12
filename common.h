@@ -16,6 +16,7 @@
 typedef uint16_t InternalNum;
 #define INTERNAL_MAX UINT16_MAX
 
+#undef USE_CUSTOM_MALLOC
 #undef DEBUG_TRACE_EXECUTION
 
 #endif

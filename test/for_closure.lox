@@ -1,13 +1,13 @@
 var one = nil;
 var two = nil;
 
-for (var i = 0; i < 2; i = i + 1) {
+for (var i = 1; i < 4; i = i + 2) {
     fun closure() {
         print i;
     }
-    if (i == 0) {
+    if (i == 1) {
         one = closure;
-    } else if (i == 1) {
+    } else {
 	two = closure;
     }
 }

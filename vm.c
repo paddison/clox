@@ -183,7 +183,7 @@ static ObjUpvalue *captureUpvalue(Value *local) {
 static ObjUpvalue *copyUpvalue(Value *local) {
   ObjUpvalue *createdUpvalue = newUpvalue(local);
 
-  createdUpvalue->closed = *createdUpvalue->location;
+  createdUpvalue->closed = *local;
   createdUpvalue->location = &createdUpvalue->closed;
   createdUpvalue->next = vm.openUpvalues;
 
@@ -440,8 +440,12 @@ static InterpretResult run() {
         case TYPE_UPVALUE:
           closure->upvalues[i] = frame->closure->upvalues[index];
           break;
-        case TYPE_LOOP:
+        case TYPE_LOOP_LOCAL:
           closure->upvalues[i] = copyUpvalue(frame->slots + index);
+          break;
+        case TYPE_LOOP_UPVALUE:
+          closure->upvalues[i] =
+              copyUpvalue(frame->closure->upvalues[index]->location);
           break;
         }
       }
