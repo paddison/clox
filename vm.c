@@ -180,11 +180,29 @@ static ObjUpvalue *captureUpvalue(Value *local) {
   return createdUpvalue;
 }
 
+static ObjUpvalue *copyUpvalue(Value *local) {
+  ObjUpvalue *createdUpvalue = newUpvalue(local);
+
+  // We need to copy the value here, since we want to get the value at time of
+  // capture */
+  createdUpvalue->closed = *local;
+  createdUpvalue->location = &createdUpvalue->closed;
+  createdUpvalue->next = vm.openUpvalues;
+
+  vm.openUpvalues = createdUpvalue;
+
+  return createdUpvalue;
+}
+
 static void closeUpvalues(Value *last) {
   while (vm.openUpvalues != NULL && vm.openUpvalues->location >= last) {
     ObjUpvalue *upvalue = vm.openUpvalues;
-    upvalue->closed = *upvalue->location;
-    upvalue->location = &upvalue->closed;
+    /* skip over upvalues which are copied */
+    if (&upvalue->closed != upvalue->location) {
+      upvalue->closed = *upvalue->location;
+      upvalue->location = &upvalue->closed;
+    }
+
     vm.openUpvalues = upvalue->next;
   }
 }
@@ -419,12 +437,22 @@ static InterpretResult run() {
       ObjClosure *closure = newClosure(function);
       push(OBJ_VAL(closure));
       for (int i = 0; i < closure->upvalueCount; i++) {
-        uint8_t isLocal = READ_BYTE();
+        UpvalueType upValueType = READ_BYTE();
         uint8_t index = READ_BYTE();
-        if (isLocal) {
+        switch (upValueType) {
+        case TYPE_LOCAL:
           closure->upvalues[i] = captureUpvalue(frame->slots + index);
-        } else {
+          break;
+        case TYPE_UPVALUE:
           closure->upvalues[i] = frame->closure->upvalues[index];
+          break;
+        case TYPE_LOOP_LOCAL:
+          closure->upvalues[i] = copyUpvalue(frame->slots + index);
+          break;
+        case TYPE_LOOP_UPVALUE:
+          closure->upvalues[i] =
+              copyUpvalue(frame->closure->upvalues[index]->location);
+          break;
         }
       }
       break;
