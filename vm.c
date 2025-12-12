@@ -183,6 +183,8 @@ static ObjUpvalue *captureUpvalue(Value *local) {
 static ObjUpvalue *copyUpvalue(Value *local) {
   ObjUpvalue *createdUpvalue = newUpvalue(local);
 
+  // We need to copy the value here, since we want to get the value at time of
+  // capture */
   createdUpvalue->closed = *local;
   createdUpvalue->location = &createdUpvalue->closed;
   createdUpvalue->next = vm.openUpvalues;
@@ -195,8 +197,12 @@ static ObjUpvalue *copyUpvalue(Value *local) {
 static void closeUpvalues(Value *last) {
   while (vm.openUpvalues != NULL && vm.openUpvalues->location >= last) {
     ObjUpvalue *upvalue = vm.openUpvalues;
-    upvalue->closed = *upvalue->location;
-    upvalue->location = &upvalue->closed;
+    /* skip over upvalues which are copied */
+    if (&upvalue->closed != upvalue->location) {
+      upvalue->closed = *upvalue->location;
+      upvalue->location = &upvalue->closed;
+    }
+
     vm.openUpvalues = upvalue->next;
   }
 }
