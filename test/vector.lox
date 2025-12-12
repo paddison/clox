@@ -1,0 +1,33 @@
+fun vectorNew(x, y) {
+  fun constructor(which) {
+    var _x = x;
+    var _y = y;
+
+    if (which == 0) {
+      return x;
+    } else if (which == 1){
+      return y;
+    }
+  }
+
+  return constructor;
+}
+
+fun vectorGetX(v) {
+  return v(0);
+}
+
+fun vectorGetY(v) {
+  return v(1);
+}
+
+fun vectorAdd(v, w) {
+   return vectorNew(vectorGetX(v) + vectorGetX(w), vectorGetY(v) + vectorGetY(w));
+}
+
+var v = vectorNew(2, 5);
+var w = vectorNew(3, 1);
+var u = vectorAdd(v, w);
+
+print vectorGetX(u);
+print vectorGetY(u);
