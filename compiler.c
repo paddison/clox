@@ -18,7 +18,7 @@
 #include "debug.h"
 #endif
 
-#define LOCAL_MAX 4096
+#define LOCAL_MAX 512
 #define NO_LOOP (-1)
 
 typedef struct {
