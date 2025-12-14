@@ -75,6 +75,8 @@ static void defineNative(Native native) {
 void initVM() {
   resetStack();
   vm.objects = NULL;
+  vm.bytesAllocated = 0;
+  vm.nextGC = 1024 * 1024;
 
   vm.grayCount = 0;
   vm.grayCapacity = 0;
@@ -208,8 +210,8 @@ static void concatenate() {
   } while (false)
 
   ObjString *string;
-  Value b = pop();
-  Value a = pop();
+  Value b = peek(0);
+  Value a = peek(1);
 
   if (isObjType(a, OBJ_STRING) && isObjType(b, OBJ_STRING)) {
     ObjString *stringA = AS_STRING(a);
@@ -228,6 +230,9 @@ static void concatenate() {
     ObjConstString *stringB = AS_CONST_STRING(b);
     CONCAT(stringA, stringB, string);
   }
+
+  pop();
+  pop();
 
   push(OBJ_VAL(string));
 #undef CONCAT
