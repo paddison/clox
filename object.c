@@ -166,7 +166,9 @@ void printObject(Value value) {
       printf(", ");
     }
 
-    printValue(array->array.values[count - 1]);
+    if (count > 0) {
+      printValue(array->array.values[count - 1]);
+    }
     printf("]");
   }
   case OBJ_UPVALUE:

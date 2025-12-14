@@ -522,13 +522,21 @@ static int resolveUpvalue(Compiler *compiler, Token *name) {
 
 static void addLocalToTable(Token name) {
   ObjString *string = copyString(name.start, name.length);
+  Value string_val = OBJ_VAL(string);
+  // push the string as it is not tracked anywhere.
+  push(string_val);
   Value indicesOfLocal;
   Value index = INTERNAL_VAL(current->localCount);
 
   if (!tableGet(&current->variablesAtIndex, string, &indicesOfLocal)) {
     indicesOfLocal = OBJ_VAL(allocateEmptyArray());
+    push(indicesOfLocal);
     tableSet(&current->variablesAtIndex, string, indicesOfLocal);
+    pop();
   }
+  // after the string has been added to the table, it will be tracked from
+  // there. so it is safe to pop it again
+  pop();
 
   if (!IS_ARRAY(indicesOfLocal)) {
     fatal("Internal compiler error during variable lookup.");
@@ -1153,6 +1161,7 @@ void markCompilerRoots() {
   Compiler *compiler = current;
   while (compiler != NULL) {
     markObject((Obj *)compiler->function);
+    markTable(&compiler->variablesAtIndex);
     compiler = compiler->enclosing;
   }
 }
