@@ -143,7 +143,7 @@ ObjString *tableFindString(Table *table, const char *chars, int length,
 void tableRemoveWhite(Table *table) {
   for (int i = 0; i < table->capacity; i++) {
     Entry *entry = &table->entries[i];
-    if (entry->key != NULL && !entry->key->obj.isMarked) {
+    if (entry->key != NULL && !(IS_MARKED(&entry->key->obj))) {
       tableDelete(table, entry->key);
     }
   }

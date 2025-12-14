@@ -52,7 +52,7 @@ static inline uint32_t hashArray(const ValueArray *arr) {
 }
 
 static inline uint32_t hashObject(const Obj *obj) {
-  switch (obj->type) {
+  switch (TYPE(obj)) {
   case OBJ_STRING:
     return ((ObjString *)obj)->hash;
   case OBJ_CONST_STRING: {

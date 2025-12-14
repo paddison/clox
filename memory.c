@@ -45,7 +45,7 @@ void *reallocate(void *pointer, size_t oldSize, size_t newSize) {
 void markObject(Obj *object) {
   if (object == NULL)
     return;
-  if (object->isMarked)
+  if (IS_MARKED(object))
     return;
 
 #ifdef DEBUG_LOG_GC
@@ -54,7 +54,7 @@ void markObject(Obj *object) {
   printf("\n");
 #endif
 
-  object->isMarked = true;
+  MARK(object);
 
   if (vm.grayCapacity < vm.grayCount + 1) {
     vm.grayCapacity = GROW_CAPACITY(vm.grayCapacity);
@@ -90,7 +90,7 @@ static void blackenObject(Obj *object) {
   printValue(OBJ_VAL(object));
   printf("\n");
 #endif
-  switch (object->type) {
+  switch (TYPE(object)) {
   case OBJ_CLOSURE: {
     ObjClosure *closure = (ObjClosure *)object;
     markObject((Obj *)closure->function);
@@ -121,9 +121,9 @@ static void blackenObject(Obj *object) {
 
 static void freeObject(Obj *object) {
 #ifdef DEBUG_LOG_GC
-  printf("%p free type %d\n", (void *)object, object->type);
+  printf("%p free type %d\n", (void *)object, TYPE(object));
 #endif
-  switch (object->type) {
+  switch (TYPE(object)) {
   case OBJ_FUNCTION: {
     ObjFunction *function = (ObjFunction *)object;
     freeChunk(&function->chunk);
@@ -185,8 +185,8 @@ static void sweep() {
   Obj *previous = NULL;
   Obj *object = vm.objects;
   while (object != NULL) {
-    if (object->isMarked) {
-      object->isMarked = false;
+    if (IS_MARKED(object)) {
+      FREE_MARK(object);
       previous = object;
       object = object->next;
     } else {

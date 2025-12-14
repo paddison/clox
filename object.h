@@ -6,7 +6,18 @@
 #include "value.h"
 
 // clang-format off
-#define OBJ_TYPE(value)         (AS_OBJ(value)->type)
+/*******************************************************************************
+ * Encode the mark as a flag in the type header:
+ * obj->type:
+ * |mttt tttt|
+ * |0000_0000|
+ * the 't' bits encode the type, whereas the 'm' bit encodes if the mark is set.
+ *******************************************************************************/
+#define OBJ_TYPE(value)         (AS_OBJ(value)->type & 0x7F) // extract the 7 lsb
+#define TYPE(obj)               (obj->type & 0x7F)           // extract the 7 lsb
+#define IS_MARKED(obj)          ((obj)->type & 0x80)           // check the 'm' bit
+#define MARK(obj)               (obj->type |= 0x80)          // set the 'm' bit
+#define FREE_MARK(obj)          (obj->type &= 0x7F)          // unset the 'm' bit
 
 #define IS_CLOSURE(value)       (isObjType(value, OBJ_CLOSURE))
 #define IS_FUNCTION(value)      (isObjType(value, OBJ_FUNCTION))
@@ -23,18 +34,17 @@
 // clang-format on
 
 typedef enum {
-  OBJ_FUNCTION,
-  OBJ_NATIVE,
-  OBJ_STRING,
-  OBJ_CONST_STRING,
-  OBJ_ARRAY,
-  OBJ_CLOSURE,
-  OBJ_UPVALUE,
+  OBJ_FUNCTION = 0,
+  OBJ_NATIVE = 1,
+  OBJ_STRING = 2,
+  OBJ_CONST_STRING = 3,
+  OBJ_ARRAY = 4,
+  OBJ_CLOSURE = 5,
+  OBJ_UPVALUE = 6,
 } ObjType;
 
 struct Obj {
   ObjType type;
-  bool isMarked;
   struct Obj *next;
 };
 
