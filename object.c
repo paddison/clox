@@ -161,15 +161,16 @@ void printObject(Value value) {
 
     printf("[");
 
-    for (int i = 0; i < count - 1; i++) {
-      printValue(array->array.values[i]);
-      printf(", ");
-    }
-
     if (count > 0) {
+      for (int i = 0; i < count - 1; i++) {
+        printValue(array->array.values[i]);
+        printf(", ");
+      }
+
       printValue(array->array.values[count - 1]);
     }
     printf("]");
+    break;
   }
   case OBJ_UPVALUE:
     printf("upvalue");
