@@ -185,8 +185,12 @@ static void sweep() {
   Obj *previous = NULL;
   Obj *object = vm.objects;
   while (object != NULL) {
-    if (object->isMarked) {
-      object->isMarked = false;
+    // This sets the isMarked field to false, if it was true before.
+    // Otherwise it will be set to true, which will cause the else branch to be
+    // taken. Since we free the object there, we don't care about the
+    // value of the mark anyways.
+    if (!(object->isMarked ^= true)) {
+      // object->isMarked = false;
       previous = object;
       object = object->next;
     } else {
