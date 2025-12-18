@@ -8,14 +8,16 @@
 // clang-format off
 #define OBJ_TYPE(value)         (AS_OBJ(value)->type)
 
+#define IS_CLASS(value)         (isObjType(value, OBJ_CLASS))
 #define IS_CLOSURE(value)       (isObjType(value, OBJ_CLOSURE))
 #define IS_FUNCTION(value)      (isObjType(value, OBJ_FUNCTION))
 #define IS_STRING(value)        (isObjType(value, OBJ_STRING) || isObjType(value, OBJ_CONST_STRING))
 #define IS_ARRAY(value)         (isObjType(value, OBJ_ARRAY))
 
+#define AS_CLASS(value)         ((ObjClass*)      AS_OBJ(value))
 #define AS_CLOSURE(value)       ((ObjClosure*)    AS_OBJ(value))
 #define AS_FUNCTION(value)      ((ObjFunction*)   AS_OBJ(value))
-#define AS_NATIVE(value)        (((ObjNative*)    AS_OBJ(value)))
+#define AS_NATIVE(value)        ((ObjNative*)     AS_OBJ(value))
 #define AS_STRING(value)        ((ObjString*)     AS_OBJ(value))
 #define AS_CONST_STRING(value)  ((ObjConstString*)AS_OBJ(value))
 #define AS_CSTRING(value)       (((ObjString*)    AS_OBJ(value))->chars)
@@ -23,6 +25,7 @@
 // clang-format on
 
 typedef enum {
+  OBJ_CLASS,
   OBJ_FUNCTION,
   OBJ_NATIVE,
   OBJ_STRING,
@@ -87,11 +90,17 @@ typedef struct {
   int upvalueCount;
 } ObjClosure;
 
+typedef struct {
+  Obj obj;
+  ObjString *name;
+} ObjClass;
+
 struct ObjArray {
   Obj obj;
   ValueArray array;
 };
 
+ObjClass *newClass(ObjString *name);
 ObjClosure *newClosure(ObjFunction *function);
 ObjFunction *newFunction();
 ObjNative *newNative(NativeFn function, int arity);
