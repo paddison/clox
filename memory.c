@@ -200,8 +200,8 @@ static void sweep() {
     // Otherwise it will be set to true, which will cause the else branch to be
     // taken. Since we free the object there, we don't care about the
     // value of the mark anyways.
-    if (!(object->isMarked ^= true)) {
-      // object->isMarked = false;
+    if (object->isMarked) {
+      object->isMarked = false;
       previous = object;
       object = object->next;
     } else {
