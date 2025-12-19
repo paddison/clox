@@ -3,18 +3,21 @@
 
 #include "chunk.h"
 #include "common.h"
+#include "table.h"
 #include "value.h"
 
 // clang-format off
 #define OBJ_TYPE(value)         (AS_OBJ(value)->type)
 
 #define IS_CLASS(value)         (isObjType(value, OBJ_CLASS))
+#define IS_INSTANCE(value)      (isObjType(value, OBJ_INSTANCE))
 #define IS_CLOSURE(value)       (isObjType(value, OBJ_CLOSURE))
 #define IS_FUNCTION(value)      (isObjType(value, OBJ_FUNCTION))
 #define IS_STRING(value)        (isObjType(value, OBJ_STRING) || isObjType(value, OBJ_CONST_STRING))
 #define IS_ARRAY(value)         (isObjType(value, OBJ_ARRAY))
 
 #define AS_CLASS(value)         ((ObjClass*)      AS_OBJ(value))
+#define AS_INSTANCE(value)      ((ObjInstance*)   AS_OBJ(value))
 #define AS_CLOSURE(value)       ((ObjClosure*)    AS_OBJ(value))
 #define AS_FUNCTION(value)      ((ObjFunction*)   AS_OBJ(value))
 #define AS_NATIVE(value)        ((ObjNative*)     AS_OBJ(value))
@@ -27,6 +30,7 @@
 typedef enum {
   OBJ_CLASS,
   OBJ_FUNCTION,
+  OBJ_INSTANCE,
   OBJ_NATIVE,
   OBJ_STRING,
   OBJ_CONST_STRING,
@@ -95,6 +99,12 @@ typedef struct {
   ObjString *name;
 } ObjClass;
 
+typedef struct {
+  Obj obj;
+  ObjClass *klass;
+  Table fields;
+} ObjInstance;
+
 struct ObjArray {
   Obj obj;
   ValueArray array;
@@ -103,6 +113,7 @@ struct ObjArray {
 ObjClass *newClass(ObjString *name);
 ObjClosure *newClosure(ObjFunction *function);
 ObjFunction *newFunction();
+ObjInstance *newInstance(ObjClass *klass);
 ObjNative *newNative(NativeFn function, int arity);
 ObjString *allocateEmptyString(const int length);
 ObjString *takeString(char *chars, int length);

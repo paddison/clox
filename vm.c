@@ -154,6 +154,11 @@ static bool callValue(uint8_t *ip, Value callee, int argCount) {
     case OBJ_NATIVE: {
       return callNative(AS_NATIVE(callee), argCount, ip);
     }
+    case OBJ_CLASS: {
+      ObjClass *klass = AS_CLASS(callee);
+      vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass));
+      return true;
+    }
     default:
       break;
     }
@@ -471,6 +476,9 @@ static InterpretResult run() {
       printf("\n");
       break;
     }
+    case OP_CLASS:
+      push(OBJ_VAL(newClass(READ_STRING())));
+      break;
     }
   }
 
