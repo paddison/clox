@@ -429,10 +429,10 @@ static InternalNum addGlobal(Token *name, bool isConstant) {
 // Returns where it is in the constantArray
 static InternalNum identifierConstant(Token *name, bool isConstant) {
   Value index;
-  Global *global;
+  Global global;
 
-  if (getGlobal(name, global)) {
-    return global->indexInCurrentChunkValues;
+  if (getGlobal(name, &global)) {
+    return global.indexInCurrentChunkValues;
   } else {
     return addGlobal(name, isConstant);
   }
