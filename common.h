@@ -21,5 +21,6 @@ typedef uint16_t InternalNum;
 
 #undef DEBUG_STRESS_GC
 #undef DEBUG_LOG_GC
+#undef USE_CUSTOM_MALLOC
 
 #endif
