@@ -205,13 +205,16 @@ static bool isFalsey(Value value) {
 }
 
 static void concatenate() {
+
 #define CONCAT(a, b, string)                                                   \
   do {                                                                         \
     int length = a->length + stringB->length;                                  \
+    char *chars = ALLOCATE(char, length + 1);                                  \
     string = allocateEmptyString(length);                                      \
-    memcpy(string->chars, a->chars, a->length);                                \
-    memcpy(string->chars + a->length, b->chars, b->length);                    \
-    string->chars[length] = '\0';                                              \
+    memcpy(chars, a->chars, a->length);                                        \
+    memcpy(chars + a->length, b->chars, b->length);                            \
+    chars[length] = '\0';                                                      \
+    string = takeString(chars, length);                                        \
   } while (false)
 
   ObjString *string;

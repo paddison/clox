@@ -140,6 +140,7 @@ ObjConstString *constString(const char *chars, int length) {
   ObjConstString *string = ALLOCATE_OBJ(ObjConstString, OBJ_CONST_STRING);
   string->length = length;
   string->chars = chars;
+  string->hash = hashString(chars, length);
   return string;
 }
 
