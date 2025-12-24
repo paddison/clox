@@ -25,14 +25,42 @@ static Value clockNative(int argCount, Value *args) {
 static Value sqrtNative(int argCount, Value *args) {
   Value n = args[0];
   if (!IS_NUMBER(n)) {
-    return ERR_VAL("Invalid argument type for sqrt.");
+    return ERR_VAL("Invalid argument type for 'sqrt'.");
   }
   return NUMBER_VAL(sqrt(AS_NUMBER(n)));
+}
+
+static Value getFieldNative(int argCount, Value *args) {
+  if (!IS_INSTANCE(args[0]) || !IS_STRING(args[1])) {
+    return ERR_VAL("Invalid argument types for 'getField'");
+  }
+
+  // Note: This does not work with type ConstString.
+  Value fieldValue;
+
+  if (!tableGet(&AS_INSTANCE(args[0])->fields, AS_STRING(args[1]),
+                &fieldValue)) {
+    fieldValue = ERR_VAL("Field does not exist on instance");
+  }
+
+  return fieldValue;
+}
+
+static Value setFieldNative(int argCount, Value *args) {
+  if (!IS_INSTANCE(args[0]) || !IS_STRING(args[1])) {
+    return ERR_VAL("Invalid argument types for 'getField'");
+  }
+
+  tableSet(&AS_INSTANCE(args[0])->fields, AS_STRING(args[1]), args[2]);
+
+  return NIL_VAL;
 }
 
 Native natives[NUMBER_OF_NATIVES] = {
     {clockNative, "clock", 0},
     {sqrtNative, "sqrt", 1},
+    {getFieldNative, "getField", 2},
+    {setFieldNative, "setField", 3},
 };
 
 static void resetStack() {
