@@ -14,6 +14,7 @@
 #define IS_CLOSURE(value)       (isObjType(value, OBJ_CLOSURE))
 #define IS_FUNCTION(value)      (isObjType(value, OBJ_FUNCTION))
 #define IS_STRING(value)        (isObjType(value, OBJ_STRING) || isObjType(value, OBJ_CONST_STRING))
+#define IS_CONST_STRING(value)  (isObjType(value, OBJ_CONST_STRING))
 #define IS_ARRAY(value)         (isObjType(value, OBJ_ARRAY))
 
 #define AS_CLASS(value)         ((ObjClass*)      AS_OBJ(value))
@@ -84,6 +85,7 @@ typedef struct ObjUpvalue {
 struct ObjConstString {
   Obj obj;
   int length;
+  uint32_t hash;
   const char *chars;
 };
 
