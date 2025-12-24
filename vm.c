@@ -30,9 +30,19 @@ static Value sqrtNative(int argCount, Value *args) {
   return NUMBER_VAL(sqrt(AS_NUMBER(n)));
 }
 
+static Value delFieldNative(int argCount, Value *args) {
+  if (!IS_INSTANCE(args[0]) || !IS_STRING(args[1])) {
+    return ERR_VAL("Invalid argument type for delField.");
+  }
+
+  return BOOL_VAL(
+      tableDelete(&AS_INSTANCE(args[0])->fields, AS_STRING(args[1])));
+}
+
 Native natives[NUMBER_OF_NATIVES] = {
     {clockNative, "clock", 0},
     {sqrtNative, "sqrt", 1},
+    {delFieldNative, "delField", 2},
 };
 
 static void resetStack() {
@@ -208,10 +218,12 @@ static void concatenate() {
 #define CONCAT(a, b, string)                                                   \
   do {                                                                         \
     int length = a->length + stringB->length;                                  \
+    char *chars = ALLOCATE(char, length + 1);                                  \
     string = allocateEmptyString(length);                                      \
-    memcpy(string->chars, a->chars, a->length);                                \
-    memcpy(string->chars + a->length, b->chars, b->length);                    \
-    string->chars[length] = '\0';                                              \
+    memcpy(chars, a->chars, a->length);                                        \
+    memcpy(chars + a->length, b->chars, b->length);                            \
+    chars[length] = '\0';                                                      \
+    string = takeString(chars, length);                                        \
   } while (false)
 
   ObjString *string;
