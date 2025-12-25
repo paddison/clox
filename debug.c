@@ -143,6 +143,8 @@ int disassembleInstruction(Chunk *chunk, int offset) {
     return simpleInstruction("OP_SWITCH_COMPARE", offset);
   case OP_CLASS:
     return constantInstruction("OP_CLASS", chunk, offset);
+  case OP_METHOD:
+    return constantInstruction("OP_METHOD", chunk, offset);
   default:
     printf("Unknown opcode %d\n", instruction);
     return offset + 1;
