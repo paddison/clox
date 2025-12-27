@@ -535,7 +535,9 @@ static InterpretResult run() {
       if (!invoke(ip, method, argCount)) {
         return INTERPRET_RUNTIME_ERROR;
       }
+      frame->ip = ip;
       frame = &vm.frames[vm.frameCount - 1];
+      ip = frame->ip;
       break;
     }
     case OP_CLOSURE: {
