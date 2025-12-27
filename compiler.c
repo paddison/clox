@@ -64,6 +64,7 @@ typedef struct {
 
 typedef enum {
   TYPE_FUNCTION,
+  TYPE_INITIALIZER,
   TYPE_METHOD,
   TYPE_SCRIPT,
 } FunctionType;
@@ -124,6 +125,8 @@ static void and_(bool canAssign);
 static void or_(bool canAssign);
 static void this_(bool canAssign);
 static void namedVariable(Token name, bool canAssign);
+static void addLocalToTable(Token name);
+static void addLocal(Token name, bool isConstant, int depth);
 
 // clang-format off
 ParseRule rules[] = {
@@ -269,7 +272,11 @@ static int emitJump(uint8_t instruction) {
 }
 
 static void emitReturn() {
-  emitByte(OP_NIL);
+  if (current->type == TYPE_INITIALIZER) {
+    emitBytes(OP_GET_LOCAL, 0);
+  } else {
+    emitByte(OP_NIL);
+  }
   emitByte(OP_RETURN);
 }
 
@@ -322,17 +329,22 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
         copyString(parser.previous.start, parser.previous.length);
   }
 
-  Local *local = &current->locals[current->localCount++];
-  local->depth = 0;
-  local->isCaptured = false;
-  local->isConstant = false;
+  // Local *local = &current->locals[current->localCount++];
+  Token local;
+
+  // local->depth = 0;
+  // local->isCaptured = false;
+  // local->isConstant = false;
   if (type != TYPE_FUNCTION) {
-    local->name.start = "this";
-    local->name.length = 0;
+    local.start = "this";
+    local.length = 4;
   } else {
-    local->name.start = "";
-    local->name.length = 0;
+    local.start = "";
+    local.length = 0;
   }
+
+  addLocal(local, false, 0);
+  // addLocalToTable(local->name);
 }
 
 static ObjFunction *endCompiler() {
@@ -446,6 +458,8 @@ static InternalNum addGlobal(Token *name, bool isConstant) {
 static InternalNum identifierConstant(Token *name, bool isConstant) {
   Value index;
   Global global;
+
+  printf("%.*s\n", name->length, name->start);
 
   if (getGlobal(name, &global)) {
     return global.indexInCurrentChunkValues;
@@ -562,7 +576,7 @@ static void addLocalToTable(Token name) {
   writeValueArray(&AS_ARRAY(indicesOfLocal)->array, index);
 }
 
-static void addLocal(Token name, bool isConstant) {
+static void addLocal(Token name, bool isConstant, int depth) {
   if (current->localCount == UINT16_COUNT) {
     error("Too many local variables in function.");
     return;
@@ -572,7 +586,7 @@ static void addLocal(Token name, bool isConstant) {
 
   Local *local = &current->locals[current->localCount++];
   local->name = name;
-  local->depth = -1;
+  local->depth = depth;
   local->isConstant = isConstant;
   local->isCaptured = false;
   printf("Local %.*s at depth: %d, localCount: %d\n", name.length, name.start,
@@ -596,7 +610,7 @@ static void declareVariable(bool isConstant) {
     }
   }
 
-  addLocal(*name, isConstant);
+  addLocal(*name, isConstant, -1);
 }
 
 static uint8_t parseVariable(const char *errorMessage, bool isConstant) {
@@ -695,7 +709,7 @@ static void call(bool canAssign) {
 }
 
 static void dot(bool canAssign) {
-  consume(TOKEN_IDENTIFIER, "Expect proprety ame after '.'.");
+  consume(TOKEN_IDENTIFIER, "Expect proprety name after '.'.");
   uint8_t name = identifierConstant(&parser.previous, false);
 
   if (canAssign && match(TOKEN_EQUAL)) {
@@ -765,6 +779,11 @@ static void method() {
   consume(TOKEN_IDENTIFIER, "Expect method name.");
   uint8_t constant = identifierConstant(&parser.previous, false);
   FunctionType type = TYPE_METHOD;
+  if (parser.previous.length == 4 &&
+      memcmp(parser.previous.start, "init", 4) == 0) {
+    type = TYPE_INITIALIZER;
+  }
+
   function(type);
   emitBytes(OP_METHOD, constant);
 }
@@ -922,6 +941,10 @@ static void returnStatement() {
   if (match(TOKEN_SEMICOLON)) {
     emitReturn();
   } else {
+    if (current->type == TYPE_INITIALIZER) {
+      error("Can't return a value from an initializer.");
+    }
+
     expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after return value");
     emitByte(OP_RETURN);

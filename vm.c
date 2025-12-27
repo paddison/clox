@@ -85,6 +85,9 @@ void initVM() {
   initTable(&vm.globals);
   initTable(&vm.strings);
 
+  vm.initString = NULL;
+  vm.initString = copyString("init", 4);
+
   for (int i = 0; i < NUMBER_OF_NATIVES; i++) {
     defineNative(natives[i]);
   }
@@ -93,6 +96,7 @@ void initVM() {
 void freeVM() {
   freeTable(&vm.globals);
   freeTable(&vm.strings);
+  vm.initString = NULL;
   freeObjects();
 }
 
@@ -162,6 +166,13 @@ static bool callValue(uint8_t *ip, Value callee, int argCount) {
     case OBJ_CLASS: {
       ObjClass *klass = AS_CLASS(callee);
       vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass));
+      Value initializer;
+      if (tableGet(&klass->methods, vm.initString, &initializer)) {
+        return call(AS_CLOSURE(initializer), argCount, ip);
+      } else if (argCount != 0) {
+        runtimeError(ip, "Expect 0 arguments but got %d.", argCount);
+        return false;
+      }
       return true;
     }
     default:
@@ -394,7 +405,7 @@ static InterpretResult run() {
       }
 
       ObjInstance *instance = AS_INSTANCE(peek(0));
-      ObjString *name = READ_STRING();
+      ObjString *name = READ_GLOBAL_STRING();
 
       Value value;
       if (tableGet(&instance->fields, name, &value)) {
@@ -415,7 +426,7 @@ static InterpretResult run() {
       }
 
       ObjInstance *instance = AS_INSTANCE(peek(1));
-      tableSet(&instance->fields, READ_STRING(), peek(0));
+      tableSet(&instance->fields, READ_GLOBAL_STRING(), peek(0));
       Value value = pop();
       pop();
       push(value);
