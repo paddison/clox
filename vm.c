@@ -85,9 +85,6 @@ void initVM() {
   initTable(&vm.globals);
   initTable(&vm.strings);
 
-  vm.initString = NULL;
-  vm.initString = copyString("init", 4);
-
   for (int i = 0; i < NUMBER_OF_NATIVES; i++) {
     defineNative(natives[i]);
   }
@@ -96,7 +93,6 @@ void initVM() {
 void freeVM() {
   freeTable(&vm.globals);
   freeTable(&vm.strings);
-  vm.initString = NULL;
   freeObjects();
 }
 
