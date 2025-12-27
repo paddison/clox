@@ -789,7 +789,7 @@ static void method() {
   }
 
   function(type);
-  emitBytes(OP_METHOD, constant);
+  emitBytes(type == TYPE_INITIALIZER ? OP_INIT : OP_METHOD, constant);
 }
 
 static void classDeclaration() {

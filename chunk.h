@@ -42,6 +42,7 @@ typedef enum {
   OP_RETURN,
   OP_CLASS,
   OP_METHOD,
+  OP_INIT,
 } OpCode;
 
 typedef struct {

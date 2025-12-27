@@ -166,9 +166,9 @@ static bool callValue(uint8_t *ip, Value callee, int argCount) {
     case OBJ_CLASS: {
       ObjClass *klass = AS_CLASS(callee);
       vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass));
-      Value initializer;
-      if (tableGet(&klass->methods, vm.initString, &initializer)) {
-        return call(AS_CLOSURE(initializer), argCount, ip);
+
+      if (!IS_NIL(klass->initializer)) {
+        return call(AS_CLOSURE(klass->initializer), argCount, ip);
       } else if (argCount != 0) {
         runtimeError(ip, "Expect 0 arguments but got %d.", argCount);
         return false;
@@ -261,6 +261,13 @@ static void defineMethod(ObjString *name) {
   Value method = peek(0);
   ObjClass *klass = AS_CLASS(peek(1));
   tableSet(&klass->methods, name, method);
+  pop();
+}
+
+static void defineInitializer(ObjString *name) {
+  Value initializer = peek(0);
+  ObjClass *klass = AS_CLASS(peek(1));
+  klass->initializer = initializer;
   pop();
 }
 
@@ -593,6 +600,9 @@ static InterpretResult run() {
       break;
     case OP_METHOD:
       defineMethod(READ_STRING());
+      break;
+    case OP_INIT:
+      defineInitializer(READ_STRING());
       break;
     }
   }
