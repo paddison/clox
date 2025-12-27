@@ -183,6 +183,34 @@ static bool callValue(uint8_t *ip, Value callee, int argCount) {
   return false;
 }
 
+static bool invokeFromClass(uint8_t *ip, ObjClass *klass, ObjString *name,
+                            int argCount) {
+  Value method;
+  if (!tableGet(&klass->methods, name, &method)) {
+    runtimeError(ip, "Undefined property '%s'.", name->chars);
+    return false;
+  }
+  return call(AS_CLOSURE(method), argCount, ip);
+}
+
+static bool invoke(uint8_t *ip, ObjString *name, int argCount) {
+  Value receiver = peek(argCount);
+
+  if (!IS_INSTANCE(receiver)) {
+    runtimeError(ip, "Only instances have methods.");
+    return false;
+  }
+  ObjInstance *instance = AS_INSTANCE(receiver);
+
+  Value value;
+  if (tableGet(&instance->fields, name, &value)) {
+    vm.stackTop[-argCount - 1] = value;
+    return callValue(ip, value, argCount);
+  }
+
+  return invokeFromClass(ip, instance->klass, name, argCount);
+}
+
 static bool bindMethod(uint8_t *ip, ObjClass *klass, ObjString *name) {
   Value method;
   if (!tableGet(&klass->methods, name, &method)) {
@@ -499,6 +527,15 @@ static InterpretResult run() {
       frame->ip = ip;
       frame = &vm.frames[vm.frameCount - 1];
       ip = frame->ip;
+      break;
+    }
+    case OP_INVOKE: {
+      ObjString *method = READ_GLOBAL_STRING();
+      int argCount = READ_BYTE();
+      if (!invoke(ip, method, argCount)) {
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      frame = &vm.frames[vm.frameCount - 1];
       break;
     }
     case OP_CLOSURE: {
