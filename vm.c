@@ -460,6 +460,15 @@ static InterpretResult run() {
       push(value);
       break;
     }
+    case OP_GET_SUPER: {
+      ObjString *name = READ_STRING();
+      ObjClass *superclass = AS_CLASS(pop());
+
+      if (!bindMethod(ip, superclass, name)) {
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      break;
+    }
     case OP_EQUAL: {
       Value a = pop();
       Value b = pop();
@@ -533,6 +542,18 @@ static InterpretResult run() {
       ObjString *method = READ_GLOBAL_STRING();
       int argCount = READ_BYTE();
       if (!invoke(ip, method, argCount)) {
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      frame->ip = ip;
+      frame = &vm.frames[vm.frameCount - 1];
+      ip = frame->ip;
+      break;
+    }
+    case OP_SUPER_INVOKE: {
+      ObjString *method = READ_GLOBAL_STRING();
+      int argCount = READ_BYTE();
+      ObjClass *superclass = AS_CLASS(pop());
+      if (!invokeFromClass(ip, superclass, method, argCount)) {
         return INTERPRET_RUNTIME_ERROR;
       }
       frame->ip = ip;
