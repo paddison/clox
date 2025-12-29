@@ -1232,15 +1232,31 @@ static void namedVariable(Token name, bool canAssign) {
   }
 }
 
-static void variable(bool canAssign) {
-  namedVariable(parser.previous, canAssign);
-}
-
 static Token syntheticToken(const char *text) {
   Token token;
   token.start = text;
   token.length = (int)strlen(text);
   return token;
+}
+
+static void innerCall(Token name) {
+  consume(TOKEN_LEFT_PAREN, "Inner method must be called immediately");
+  argumentList();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after argument list.");
+  consume(TOKEN_SEMICOLON, "Expect ';' after statement.");
+
+  Token methodName = syntheticToken(current->function->name->chars);
+  // push the method name on the stack
+  namedVariable(methodName, false);
+  emitByte(OP_INNER_CALL);
+}
+
+static void variable(bool canAssign) {
+  if (memcmp(parser.previous.start, "inner", parser.previous.length) == 0) {
+    innerCall(parser.previous);
+  } else {
+    namedVariable(parser.previous, canAssign);
+  }
 }
 
 static void super_(bool canAssign) {
