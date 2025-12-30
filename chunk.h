@@ -34,6 +34,7 @@ typedef enum {
   OP_PRINT,
   OP_JUMP,
   OP_CALL,
+  OP_INNER_CALL,
   OP_INVOKE,
   OP_SUPER_INVOKE,
   OP_CLOSURE,

@@ -34,7 +34,11 @@ ObjBoundMethod *newBoundMethod(Value receiver, ObjClosure *method) {
 ObjClass *newClass(ObjString *name) {
   ObjClass *klass = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
   klass->name = name;
-  initTable(&klass->methods);
+  Table *methods = ALLOCATE(Table, 1);
+  klass->methods = ALLOCATE(Table *, 1);
+  initTable(methods);
+  klass->methods[0] = methods;
+  klass->hierarchySize = 1;
   return klass;
 }
 

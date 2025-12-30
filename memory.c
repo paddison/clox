@@ -100,7 +100,9 @@ static void blackenObject(Obj *object) {
   case OBJ_CLASS: {
     ObjClass *klass = (ObjClass *)object;
     markObject((Obj *)klass->name);
-    markTable(&klass->methods);
+    for (int i = 0; i < klass->hierarchySize; i++) {
+      markTable(klass->methods[i]);
+    }
     break;
   }
   case OBJ_CLOSURE: {
@@ -149,7 +151,9 @@ static void freeObject(Obj *object) {
     break;
   case OBJ_CLASS: {
     ObjClass *klass = (ObjClass *)object;
-    freeTable(&klass->methods);
+    // the class does only own it's own method table
+    freeTable(klass->methods[klass->hierarchySize - 1]);
+    reallocate(klass->methods, sizeof(Table *) * klass->hierarchySize, 0);
     FREE(ObjClass, object);
     break;
   }

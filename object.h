@@ -99,10 +99,12 @@ typedef struct {
   int upvalueCount;
 } ObjClosure;
 
-typedef struct {
+typedef struct ObjClass {
   Obj obj;
+  struct ObjClass *superclass;
   ObjString *name;
-  Table methods;
+  Table **methods;
+  int hierarchySize;
 } ObjClass;
 
 typedef struct {
