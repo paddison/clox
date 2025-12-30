@@ -126,6 +126,7 @@ static void and_(bool canAssign);
 static void or_(bool canAssign);
 static void this_(bool canAssign);
 static void super_(bool canAssign);
+static void inner(bool canAssign);
 static void namedVariable(Token name, bool canAssign);
 static void addLocalToTable(Token name);
 static void addLocal(Token name, bool isConstant, int depth);
@@ -166,8 +167,9 @@ ParseRule rules[] = {
   [TOKEN_OR]            = {NULL,     or_,    PREC_OR},
   [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
-  [TOKEN_SUPER]         = {super_,     NULL,   PREC_NONE},
-  [TOKEN_THIS]          = {this_,     NULL,   PREC_NONE},
+  [TOKEN_SUPER]         = {super_,   NULL,   PREC_NONE},
+  [TOKEN_INNER]         = {inner,    NULL,   PREC_NONE},
+  [TOKEN_THIS]          = {this_,    NULL,   PREC_NONE},
   [TOKEN_TRUE]          = {literal,  NULL,   PREC_NONE},
   [TOKEN_VAR]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_WHILE]         = {NULL,     NULL,   PREC_NONE},
@@ -1239,24 +1241,26 @@ static Token syntheticToken(const char *text) {
   return token;
 }
 
-static void innerCall(Token name) {
-  consume(TOKEN_LEFT_PAREN, "Inner method must be called immediately");
-  argumentList();
-  consume(TOKEN_RIGHT_PAREN, "Expect ')' after argument list.");
-  consume(TOKEN_SEMICOLON, "Expect ';' after statement.");
+static void inner(bool canAssign) {
+  if (current->type != TYPE_METHOD) {
+    error("inner() is only allowed in methods.");
+  }
 
   Token methodName = syntheticToken(current->function->name->chars);
   // push the method name on the stack
   namedVariable(methodName, false);
+
+  consume(TOKEN_LEFT_PAREN, "Inner method must be called immediately.");
+  int argCount = argumentList();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after argument list.");
+  consume(TOKEN_SEMICOLON, "Expect ';' after statement.");
+
   emitByte(OP_INNER_CALL);
+  emitByte(argCount);
 }
 
 static void variable(bool canAssign) {
-  if (memcmp(parser.previous.start, "inner", parser.previous.length) == 0) {
-    innerCall(parser.previous);
-  } else {
-    namedVariable(parser.previous, canAssign);
-  }
+  namedVariable(parser.previous, canAssign);
 }
 
 static void super_(bool canAssign) {

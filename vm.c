@@ -167,7 +167,8 @@ static bool callValue(uint8_t *ip, Value callee, int argCount) {
       ObjClass *klass = AS_CLASS(callee);
       vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass));
       Value initializer;
-      if (tableGet(&klass->methods, vm.initString, &initializer)) {
+      if (tableGet(klass->methods[klass->hierarchySize - 1], vm.initString,
+                   &initializer)) {
         return call(AS_CLOSURE(initializer), argCount, ip);
       } else if (argCount != 0) {
         runtimeError(ip, "Expect 0 arguments but got %d.", argCount);
@@ -183,13 +184,25 @@ static bool callValue(uint8_t *ip, Value callee, int argCount) {
   return false;
 }
 
+static bool getRootMethod(ObjClass *klass, ObjString *name, Value *method) {
+  for (int i = 0; i < klass->hierarchySize; i++) {
+    if (tableGet(klass->methods[i], name, method)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 static bool invokeFromClass(uint8_t *ip, ObjClass *klass, ObjString *name,
                             int argCount) {
   Value method;
-  if (!tableGet(&klass->methods, name, &method)) {
+
+  if (!getRootMethod(klass, name, &method)) {
     runtimeError(ip, "Undefined property '%s'.", name->chars);
     return false;
   }
+
   return call(AS_CLOSURE(method), argCount, ip);
 }
 
@@ -213,7 +226,8 @@ static bool invoke(uint8_t *ip, ObjString *name, int argCount) {
 
 static bool bindMethod(uint8_t *ip, ObjClass *klass, ObjString *name) {
   Value method;
-  if (!tableGet(&klass->methods, name, &method)) {
+
+  if (!getRootMethod(klass, name, &method)) {
     runtimeError(ip, "Undefined property '%s'.", name->chars);
     return false;
   }
@@ -260,7 +274,8 @@ static void closeUpvalues(Value *last) {
 static void defineMethod(ObjString *name) {
   Value method = peek(0);
   ObjClass *klass = AS_CLASS(peek(1));
-  tableSet(&klass->methods, name, method);
+
+  tableSet(klass->methods[klass->hierarchySize - 1], name, method);
   pop();
 }
 
@@ -613,13 +628,22 @@ static InterpretResult run() {
       push(OBJ_VAL(newClass(READ_STRING())));
       break;
     case OP_INHERIT: {
-      Value superclass = peek(1);
-      if (!IS_CLASS(superclass)) {
+      Value superclassValue = peek(1);
+      if (!IS_CLASS(superclassValue)) {
         runtimeError(ip, "Superclass must be a class.");
         return INTERPRET_RUNTIME_ERROR;
       }
+      ObjClass *superclass = AS_CLASS(superclassValue);
       ObjClass *subclass = AS_CLASS(peek(0));
-      tableAddAll(&AS_CLASS(superclass)->methods, &subclass->methods);
+      Table **newMethods = ALLOCATE(Table *, superclass->hierarchySize + 1);
+      memcpy(newMethods, superclass->methods,
+             sizeof(Table *) * superclass->hierarchySize);
+      newMethods[superclass->hierarchySize] = subclass->methods[0];
+      Table **oldMethods = subclass->methods;
+      subclass->methods = newMethods;
+      subclass->hierarchySize = superclass->hierarchySize + 1;
+      FREE(Table **, oldMethods);
+      subclass->superclass = superclass;
       pop();
       break;
     }
