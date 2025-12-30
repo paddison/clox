@@ -184,21 +184,32 @@ static bool callValue(uint8_t *ip, Value callee, int argCount) {
   return false;
 }
 
-static bool getRootMethod(ObjClass *klass, ObjString *name, Value *method) {
-  for (int i = 0; i < klass->hierarchySize; i++) {
+static int getMethod(ObjClass *klass, ObjString *name, Value *method,
+                     int start) {
+  for (int i = start; i < klass->hierarchySize; i++) {
     if (tableGet(klass->methods[i], name, method)) {
-      return true;
+      return i;
     }
   }
 
-  return false;
+  return -1;
+}
+
+static int getRootMethod(ObjClass *klass, ObjString *name, Value *method) {
+  return getMethod(klass, name, method, 0);
+}
+
+static int getInnerMethod(ObjClass *klass, ObjString *name, Value *method) {
+  // This can never fail.
+  int rootMethodIndex = getRootMethod(klass, name, method);
+  return getMethod(klass, name, method, rootMethodIndex + 1);
 }
 
 static bool invokeFromClass(uint8_t *ip, ObjClass *klass, ObjString *name,
                             int argCount) {
   Value method;
 
-  if (!getRootMethod(klass, name, &method)) {
+  if (getRootMethod(klass, name, &method) == -1) {
     runtimeError(ip, "Undefined property '%s'.", name->chars);
     return false;
   }
@@ -227,7 +238,7 @@ static bool invoke(uint8_t *ip, ObjString *name, int argCount) {
 static bool bindMethod(uint8_t *ip, ObjClass *klass, ObjString *name) {
   Value method;
 
-  if (!getRootMethod(klass, name, &method)) {
+  if (getRootMethod(klass, name, &method) == -1) {
     runtimeError(ip, "Undefined property '%s'.", name->chars);
     return false;
   }
@@ -574,6 +585,35 @@ static InterpretResult run() {
       frame->ip = ip;
       frame = &vm.frames[vm.frameCount - 1];
       ip = frame->ip;
+      break;
+    }
+    case OP_INNER_CALL: {
+      ObjString *methodName = READ_GLOBAL_STRING();
+      int argCount = READ_BYTE();
+      ObjInstance *instance = AS_INSTANCE(peek(argCount));
+      Value method;
+      /*
+    printObject(OBJ_VAL(methodName));
+
+    printf(": %d - ", argCount);
+    printObject(peek(argCount));
+    printf("\n");
+      */
+
+      if (getInnerMethod(instance->klass, methodName, &method) == -1) {
+        // Ignore the call to inner method if it doesn't exist.
+      } else {
+        /*
+      printf("%d ", IS_CLOSURE(method));
+      printObject(method);
+        */
+        if (!callValue(ip, method, argCount)) {
+          return INTERPRET_RUNTIME_ERROR;
+        }
+        frame->ip = ip;
+        frame = &vm.frames[vm.frameCount - 1];
+        ip = frame->ip;
+      }
       break;
     }
     case OP_CLOSURE: {

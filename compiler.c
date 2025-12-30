@@ -1248,14 +1248,12 @@ static void inner(bool canAssign) {
 
   Token methodName = syntheticToken(current->function->name->chars);
   // push the method name on the stack
-  namedVariable(methodName, false);
 
+  namedVariable(syntheticToken("this"), false);
   consume(TOKEN_LEFT_PAREN, "Inner method must be called immediately.");
-  int argCount = argumentList();
-  consume(TOKEN_RIGHT_PAREN, "Expect ')' after argument list.");
-  consume(TOKEN_SEMICOLON, "Expect ';' after statement.");
+  uint8_t argCount = argumentList();
 
-  emitByte(OP_INNER_CALL);
+  emitBytes(OP_INNER_CALL, identifierConstant(&methodName, false));
   emitByte(argCount);
 }
 
