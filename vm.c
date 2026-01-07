@@ -30,9 +30,38 @@ static Value sqrtNative(int argCount, Value *args) {
   return NUMBER_VAL(sqrt(AS_NUMBER(n)));
 }
 
+static Value hasFieldNative(int argCount, Value *args) {
+  Value instance = args[0];
+  Value fieldName = args[1];
+  bool containsField = false;
+
+  if (!IS_INSTANCE(instance) || !IS_STRING(fieldName)) {
+    return ERR_VAL("Invalid argument type for hasField.");
+  }
+
+  if (IS_CONST_STRING(fieldName)) {
+    ObjConstString *fieldNameStr = AS_CONST_STRING(fieldName);
+
+    // We need to do the lazy lookup, since the string literals are stored as
+    // ConstStrings. These are not interned unfortunatley, meaning a normal
+    // lookup won't work.
+    containsField =
+        tableFindString(&AS_INSTANCE(instance)->fields, fieldNameStr->chars,
+                        fieldNameStr->length, fieldNameStr->hash) != NULL;
+  } else {
+    ObjString *fieldNameStr = AS_STRING(fieldName);
+    Value dummy;
+    containsField =
+        tableGet(&AS_INSTANCE(instance)->fields, fieldNameStr, &dummy);
+  }
+
+  return BOOL_VAL(containsField);
+}
+
 Native natives[NUMBER_OF_NATIVES] = {
     {clockNative, "clock", 0},
     {sqrtNative, "sqrt", 1},
+    {hasFieldNative, "hasField", 2},
 };
 
 static void resetStack() {

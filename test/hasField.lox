@@ -1,0 +1,8 @@
+class CoolClass {}
+
+var coolInstance = CoolClass();
+coolInstance.coolField = 5;
+
+print hasField(coolInstance, "coolField");
+print hasField(coolInstance, "uncoolField");
+print coolInstance.coolField;
