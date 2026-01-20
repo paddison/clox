@@ -126,6 +126,7 @@ static void and_(bool canAssign);
 static void or_(bool canAssign);
 static void this_(bool canAssign);
 static void super_(bool canAssign);
+static void inner(bool canAssign);
 static void namedVariable(Token name, bool canAssign);
 static void addLocalToTable(Token name);
 static void addLocal(Token name, bool isConstant, int depth);
@@ -166,8 +167,9 @@ ParseRule rules[] = {
   [TOKEN_OR]            = {NULL,     or_,    PREC_OR},
   [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
-  [TOKEN_SUPER]         = {super_,     NULL,   PREC_NONE},
-  [TOKEN_THIS]          = {this_,     NULL,   PREC_NONE},
+  [TOKEN_SUPER]         = {super_,   NULL,   PREC_NONE},
+  [TOKEN_INNER]         = {inner,    NULL,   PREC_NONE},
+  [TOKEN_THIS]          = {this_,    NULL,   PREC_NONE},
   [TOKEN_TRUE]          = {literal,  NULL,   PREC_NONE},
   [TOKEN_VAR]           = {NULL,     NULL,   PREC_NONE},
   [TOKEN_WHILE]         = {NULL,     NULL,   PREC_NONE},
@@ -1232,15 +1234,31 @@ static void namedVariable(Token name, bool canAssign) {
   }
 }
 
-static void variable(bool canAssign) {
-  namedVariable(parser.previous, canAssign);
-}
-
 static Token syntheticToken(const char *text) {
   Token token;
   token.start = text;
   token.length = (int)strlen(text);
   return token;
+}
+
+static void inner(bool canAssign) {
+  if (current->type != TYPE_METHOD) {
+    error("inner() is only allowed in methods.");
+  }
+
+  Token methodName = syntheticToken(current->function->name->chars);
+  // push the method name on the stack
+
+  namedVariable(syntheticToken("this"), false);
+  consume(TOKEN_LEFT_PAREN, "Inner method must be called immediately.");
+  uint8_t argCount = argumentList();
+
+  emitBytes(OP_INNER_CALL, identifierConstant(&methodName, false));
+  emitByte(argCount);
+}
+
+static void variable(bool canAssign) {
+  namedVariable(parser.previous, canAssign);
 }
 
 static void super_(bool canAssign) {

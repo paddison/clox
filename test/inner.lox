@@ -1,0 +1,17 @@
+class Doughnut {
+  cook(how) {
+    print "Fry until golden brown.";
+    print how;
+    inner("bad");
+    print "Place in a nice box.";
+  }
+}
+
+class BostonCream < Doughnut {
+  cook(how) {
+    print how;
+    print "Pipe full of custard and coat with chocolate.";
+  }
+}
+
+BostonCream().cook("good");
